@@ -1,0 +1,19 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Testes do núcleo (Docker)",
+      "type": "shell",
+      "command": "powershell -ExecutionPolicy Bypass -File scripts/test-core.ps1",
+      "group": "test",
+      "problemMatcher": []
+    },
+    {
+      "label": "Testes do núcleo (WSL)",
+      "type": "shell",
+      "command": "wsl bash scripts/test-core.sh",
+      "group": "test",
+      "problemMatcher": []
+    }
+  ]
+}

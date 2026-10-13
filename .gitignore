@@ -1,0 +1,21 @@
+# Xcode / XcodeGen
+*.xcodeproj
+*.xcworkspace
+!Packages/**/*.xcworkspace
+xcuserdata/
+DerivedData/
+build/
+*.ipa
+*.xcarchive
+*.xcresult
+Resources/Info.plist
+
+# SwiftPM
+.build/
+.swiftpm/
+Package.resolved
+
+# Sistema
+.DS_Store
+Thumbs.db
+*.log

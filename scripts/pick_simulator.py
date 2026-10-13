@@ -1,0 +1,20 @@
+"""Escolhe o iPhone disponível com o runtime iOS mais recente (lê JSON do simctl na entrada padrão)."""
+import json
+import re
+import sys
+
+data = json.load(sys.stdin)["devices"]
+best = None
+for runtime, devices in data.items():
+    m = re.search(r"iOS-(\d+)-(\d+)", runtime)
+    if not m:
+        continue
+    version = (int(m.group(1)), int(m.group(2)))
+    for d in devices:
+        if d.get("isAvailable") and d["name"].startswith("iPhone"):
+            key = (version, "Pro" in d["name"], d["name"])
+            if best is None or key > best[0]:
+                best = (key, d["udid"])
+if best is None:
+    sys.exit("nenhum simulador de iPhone disponível")
+print(best[1])

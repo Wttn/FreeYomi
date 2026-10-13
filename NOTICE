@@ -1,0 +1,11 @@
+FreeYomi
+Copyright 2026 FreeYomi contributors
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+It is inspired by the functionality of Mihon (https://github.com/mihonapp/mihon,
+Apache-2.0). No source code from Mihon or Tachimanga is included.
+
+Test fixture "keiyoushi-index-sample.pb.gz" contains a subset of the public
+extension metadata index published by Keiyoushi
+(https://github.com/keiyoushi/extensions), Apache-2.0.

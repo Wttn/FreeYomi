@@ -1,0 +1,8 @@
+{
+  "recommendations": [
+    "swiftlang.swift-vscode",
+    "redhat.vscode-yaml",
+    "github.vscode-github-actions",
+    "ms-vscode-remote.remote-wsl"
+  ]
+}

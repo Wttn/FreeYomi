@@ -1,0 +1,110 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Núcleo multiplataforma: roda em Linux (rápido e barato).
+  core-linux:
+    name: Núcleo (Linux, swift test)
+    runs-on: ubuntu-24.04
+    container: swift:6.1-noble
+    steps:
+      - uses: actions/checkout@v4
+      - name: Dependências de sistema
+        run: apt-get update && apt-get install -y --no-install-recommends libsqlite3-dev zlib1g-dev
+      - name: Testes
+        working-directory: Packages/FreeYomiKit
+        run: swift test --parallel
+      - name: Teste ao vivo do índice Keiyoushi (não bloqueante)
+        working-directory: Packages/FreeYomiKit
+        continue-on-error: true
+        env:
+          FY_LIVE_TESTS: "1"
+        run: swift test --filter CatalogClientTests/testLiveKeiyoushiIndex
+
+  # App iOS: gera o projeto, compila, roda testes de interface e produz um .ipa sem assinatura.
+  ios:
+    name: App iOS (Xcode 26)
+    runs-on: macos-26
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Selecionar Xcode 26
+        run: |
+          XCODE=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1)
+          if [ -z "$XCODE" ]; then XCODE=/Applications/Xcode.app; fi
+          sudo xcode-select -s "$XCODE"
+          xcodebuild -version
+
+      - name: Instalar XcodeGen
+        run: brew install xcodegen
+
+      - name: Gerar projeto
+        run: xcodegen generate
+
+      - name: Testes do núcleo (macOS)
+        working-directory: Packages/FreeYomiKit
+        run: swift test
+
+      - name: Escolher simulador
+        id: sim
+        run: |
+          UDID=$(xcrun simctl list devices available -j | python3 scripts/pick_simulator.py)
+          echo "udid=$UDID" >> "$GITHUB_OUTPUT"
+          echo "Simulador: $UDID"
+
+      - name: Compilar e testar (simulador)
+        run: |
+          status=0
+          xcodebuild test \
+            -project FreeYomi.xcodeproj \
+            -scheme FreeYomi \
+            -destination "id=${{ steps.sim.outputs.udid }}" \
+            -resultBundlePath build/TestResults.xcresult \
+            CODE_SIGNING_ALLOWED=NO > build-test.log 2>&1 || status=$?
+          grep -E "error:|Test Case .*(passed|failed)|\*\* (TEST|BUILD)" build-test.log || true
+          if [ "$status" -ne 0 ]; then tail -200 build-test.log; exit "$status"; fi
+
+      - name: Gerar .ipa sem assinatura
+        run: |
+          set -o pipefail
+          xcodebuild archive \
+            -project FreeYomi.xcodeproj \
+            -scheme FreeYomi \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination "generic/platform=iOS" \
+            -archivePath build/FreeYomi.xcarchive \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" > build-archive.log 2>&1 \
+            || (grep -E "error:" build-archive.log; tail -100 build-archive.log; exit 1)
+          mkdir -p build/Payload
+          cp -R build/FreeYomi.xcarchive/Products/Applications/FreeYomi.app build/Payload/
+          (cd build && zip -qry FreeYomi-unsigned.ipa Payload)
+          ls -la build/FreeYomi-unsigned.ipa
+
+      - name: Publicar .ipa
+        uses: actions/upload-artifact@v4
+        with:
+          name: FreeYomi-unsigned-ipa
+          path: build/FreeYomi-unsigned.ipa
+          retention-days: 30
+
+      - name: Publicar resultados de teste
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: |
+            build/TestResults.xcresult
+            build-test.log
+            build-archive.log
+          retention-days: 14

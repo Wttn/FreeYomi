@@ -1,0 +1,116 @@
+# FreeYomiKit — swift test (Linux, Swift 6.0.3, Ubuntu), FY_LIVE_TESTS=1
+# Gerado em 2026-10-13 durante a Fase 1
+
+Test Suite 'All tests' started at 2026-10-13 02:48:38.474
+Test Suite 'debug.xctest' started at 2026-10-13 02:48:38.476
+Test Suite 'MigrationTests' started at 2026-10-13 02:48:38.476
+Test Case 'MigrationTests.testMigrateIsIdempotent' started at 2026-10-13 02:48:38.477
+Test Case 'MigrationTests.testMigrateIsIdempotent' passed (0.003 seconds)
+Test Case 'MigrationTests.testRefusesNewerSchema' started at 2026-10-13 02:48:38.479
+Test Case 'MigrationTests.testRefusesNewerSchema' passed (0.0 seconds)
+Test Suite 'MigrationTests' passed at 2026-10-13 02:48:38.480
+	 Executed 2 tests, with 0 failures (0 unexpected) in 0.003 (0.003) seconds
+Test Suite 'PersistenceTests' started at 2026-10-13 02:48:38.480
+Test Case 'PersistenceTests.testCategoriesAndFilters' started at 2026-10-13 02:48:38.480
+Test Case 'PersistenceTests.testCategoriesAndFilters' passed (0.005 seconds)
+Test Case 'PersistenceTests.testChapterUpsertPreservesReadState' started at 2026-10-13 02:48:38.485
+Test Case 'PersistenceTests.testChapterUpsertPreservesReadState' passed (0.003 seconds)
+Test Case 'PersistenceTests.testCompositeKeyDistinguishesSources' started at 2026-10-13 02:48:38.487
+Test Case 'PersistenceTests.testCompositeKeyDistinguishesSources' passed (0.002 seconds)
+Test Case 'PersistenceTests.testCorruptedFileIsPreservedAndRecovered' started at 2026-10-13 02:48:38.489
+Test Case 'PersistenceTests.testCorruptedFileIsPreservedAndRecovered' passed (0.01 seconds)
+Test Case 'PersistenceTests.testDownloadsAvoidDuplicates' started at 2026-10-13 02:48:38.499
+Test Case 'PersistenceTests.testDownloadsAvoidDuplicates' passed (0.002 seconds)
+Test Case 'PersistenceTests.testLibrarySurvivesReopen' started at 2026-10-13 02:48:38.501
+Test Case 'PersistenceTests.testLibrarySurvivesReopen' passed (0.009 seconds)
+Test Case 'PersistenceTests.testProgressAndHistory' started at 2026-10-13 02:48:38.510
+Test Case 'PersistenceTests.testProgressAndHistory' passed (0.002 seconds)
+Test Case 'PersistenceTests.testSettingsTolerateMissingAndInvalidFields' started at 2026-10-13 02:48:38.513
+Test Case 'PersistenceTests.testSettingsTolerateMissingAndInvalidFields' passed (0.001 seconds)
+Test Suite 'PersistenceTests' passed at 2026-10-13 02:48:38.513
+	 Executed 8 tests, with 0 failures (0 unexpected) in 0.033 (0.033) seconds
+Test Suite 'GzipTests' started at 2026-10-13 02:48:38.513
+Test Case 'GzipTests.testCorruptedDataThrows' started at 2026-10-13 02:48:38.513
+Test Case 'GzipTests.testCorruptedDataThrows' passed (0.0 seconds)
+Test Case 'GzipTests.testOutputLimitProtectsAgainstBombs' started at 2026-10-13 02:48:38.514
+Test Case 'GzipTests.testOutputLimitProtectsAgainstBombs' passed (0.013 seconds)
+Test Case 'GzipTests.testRoundTrip' started at 2026-10-13 02:48:38.527
+Test Case 'GzipTests.testRoundTrip' passed (0.026 seconds)
+Test Suite 'GzipTests' passed at 2026-10-13 02:48:38.553
+	 Executed 3 tests, with 0 failures (0 unexpected) in 0.04 (0.04) seconds
+Test Suite 'ProtobufTests' started at 2026-10-13 02:48:38.554
+Test Case 'ProtobufTests.testInvalidWireTypeThrows' started at 2026-10-13 02:48:38.554
+Test Case 'ProtobufTests.testInvalidWireTypeThrows' passed (0.0 seconds)
+Test Case 'ProtobufTests.testLargeUInt64SourceId' started at 2026-10-13 02:48:38.554
+Test Case 'ProtobufTests.testLargeUInt64SourceId' passed (0.0 seconds)
+Test Case 'ProtobufTests.testTruncatedLengthThrows' started at 2026-10-13 02:48:38.554
+Test Case 'ProtobufTests.testTruncatedLengthThrows' passed (0.0 seconds)
+Test Case 'ProtobufTests.testVarintAndStrings' started at 2026-10-13 02:48:38.554
+Test Case 'ProtobufTests.testVarintAndStrings' passed (0.001 seconds)
+Test Suite 'ProtobufTests' passed at 2026-10-13 02:48:38.555
+	 Executed 4 tests, with 0 failures (0 unexpected) in 0.001 (0.001) seconds
+Test Suite 'SecurityTests' started at 2026-10-13 02:48:38.555
+Test Case 'SecurityTests.testOnlyHTTPSAllowed' started at 2026-10-13 02:48:38.555
+Test Case 'SecurityTests.testOnlyHTTPSAllowed' passed (0.0 seconds)
+Test Case 'SecurityTests.testRedactsCredentials' started at 2026-10-13 02:48:38.555
+Test Case 'SecurityTests.testRedactsCredentials' passed (0.0 seconds)
+Test Case 'SecurityTests.testZipSlipPathsRejected' started at 2026-10-13 02:48:38.555
+Test Case 'SecurityTests.testZipSlipPathsRejected' passed (0.0 seconds)
+Test Suite 'SecurityTests' passed at 2026-10-13 02:48:38.556
+	 Executed 3 tests, with 0 failures (0 unexpected) in 0.001 (0.001) seconds
+Test Suite 'LibraryServiceTests' started at 2026-10-13 02:48:38.556
+Test Case 'LibraryServiceTests.testDemoSeedRunsOnceAndIsRemovable' started at 2026-10-13 02:48:38.556
+Test Case 'LibraryServiceTests.testDemoSeedRunsOnceAndIsRemovable' passed (0.005 seconds)
+Test Case 'LibraryServiceTests.testMissingSourceIsReportedNotCrashing' started at 2026-10-13 02:48:38.560
+Test Case 'LibraryServiceTests.testMissingSourceIsReportedNotCrashing' passed (0.002 seconds)
+Test Case 'LibraryServiceTests.testRefreshFindsNoNewChaptersForStableSource' started at 2026-10-13 02:48:38.562
+Test Case 'LibraryServiceTests.testRefreshFindsNoNewChaptersForStableSource' passed (0.005 seconds)
+Test Suite 'LibraryServiceTests' passed at 2026-10-13 02:48:38.567
+	 Executed 3 tests, with 0 failures (0 unexpected) in 0.011 (0.011) seconds
+Test Suite 'CatalogClientTests' started at 2026-10-13 02:48:38.567
+Test Case 'CatalogClientTests.testFollowsRepoJSONAndCaches' started at 2026-10-13 02:48:38.567
+Test Case 'CatalogClientTests.testFollowsRepoJSONAndCaches' passed (0.008 seconds)
+Test Case 'CatalogClientTests.testHTTPErrorWithoutCacheIsReported' started at 2026-10-13 02:48:38.575
+Test Case 'CatalogClientTests.testHTTPErrorWithoutCacheIsReported' passed (0.0 seconds)
+Test Case 'CatalogClientTests.testLiveKeiyoushiIndex' started at 2026-10-13 02:48:38.575
+LIVE: 1433 extensões, 139 com pt-BR
+Test Case 'CatalogClientTests.testLiveKeiyoushiIndex' passed (0.546 seconds)
+Test Case 'CatalogClientTests.testRejectsPlainHTTP' started at 2026-10-13 02:48:39.121
+Test Case 'CatalogClientTests.testRejectsPlainHTTP' passed (0.0 seconds)
+Test Suite 'CatalogClientTests' passed at 2026-10-13 02:48:39.121
+	 Executed 4 tests, with 0 failures (0 unexpected) in 0.554 (0.554) seconds
+Test Suite 'CatalogDecoderTests' started at 2026-10-13 02:48:39.121
+Test Case 'CatalogDecoderTests.testAllCatalogExtensionsRequireAndroidUntilAdapterExists' started at 2026-10-13 02:48:39.121
+Test Case 'CatalogDecoderTests.testAllCatalogExtensionsRequireAndroidUntilAdapterExists' passed (0.002 seconds)
+Test Case 'CatalogDecoderTests.testDecodesRealSample' started at 2026-10-13 02:48:39.123
+Test Case 'CatalogDecoderTests.testDecodesRealSample' passed (0.003 seconds)
+Test Case 'CatalogDecoderTests.testDetectsLegacyFormats' started at 2026-10-13 02:48:39.127
+Test Case 'CatalogDecoderTests.testDetectsLegacyFormats' passed (0.0 seconds)
+Test Case 'CatalogDecoderTests.testGarbageIsRejected' started at 2026-10-13 02:48:39.127
+Test Case 'CatalogDecoderTests.testGarbageIsRejected' passed (0.0 seconds)
+Test Case 'CatalogDecoderTests.testSyntheticIndexWithUnknownFieldsAndNSFW' started at 2026-10-13 02:48:39.127
+Test Case 'CatalogDecoderTests.testSyntheticIndexWithUnknownFieldsAndNSFW' passed (0.0 seconds)
+Test Suite 'CatalogDecoderTests' passed at 2026-10-13 02:48:39.127
+	 Executed 5 tests, with 0 failures (0 unexpected) in 0.006 (0.006) seconds
+Test Suite 'DemoSourceTests' started at 2026-10-13 02:48:39.127
+Test Case 'DemoSourceTests.testChaptersAndPages' started at 2026-10-13 02:48:39.127
+Test Case 'DemoSourceTests.testChaptersAndPages' passed (0.0 seconds)
+Test Case 'DemoSourceTests.testDemoCatalogIsClearlyLabeled' started at 2026-10-13 02:48:39.128
+Test Case 'DemoSourceTests.testDemoCatalogIsClearlyLabeled' passed (0.0 seconds)
+Test Case 'DemoSourceTests.testRegistryListsPlannedSources' started at 2026-10-13 02:48:39.128
+Test Case 'DemoSourceTests.testRegistryListsPlannedSources' passed (0.0 seconds)
+Test Case 'DemoSourceTests.testSearch' started at 2026-10-13 02:48:39.129
+Test Case 'DemoSourceTests.testSearch' passed (0.0 seconds)
+Test Suite 'DemoSourceTests' passed at 2026-10-13 02:48:39.129
+	 Executed 4 tests, with 0 failures (0 unexpected) in 0.001 (0.001) seconds
+Test Suite 'ReaderNavigationTests' started at 2026-10-13 02:48:39.129
+Test Case 'ReaderNavigationTests.testTapZonesRespectReadingDirection' started at 2026-10-13 02:48:39.129
+Test Case 'ReaderNavigationTests.testTapZonesRespectReadingDirection' passed (0.0 seconds)
+Test Case 'ReaderNavigationTests.testTargetsAndPreload' started at 2026-10-13 02:48:39.129
+Test Case 'ReaderNavigationTests.testTargetsAndPreload' passed (0.0 seconds)
+Test Suite 'ReaderNavigationTests' passed at 2026-10-13 02:48:39.129
+	 Executed 2 tests, with 0 failures (0 unexpected) in 0.0 (0.0) seconds
+Test Suite 'debug.xctest' passed at 2026-10-13 02:48:39.129
+	 Executed 38 tests, with 0 failures (0 unexpected) in 0.651 (0.651) seconds
+Test Suite 'All tests' passed at 2026-10-13 02:48:39.129
+	 Executed 38 tests, with 0 failures (0 unexpected) in 0.651 (0.651) seconds
