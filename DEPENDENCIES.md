@@ -26,13 +26,13 @@ Nenhum pacote Swift, CocoaPod ou binário de terceiros é incluído.
 | Serviço | Licença / termos | Uso |
 |---|---|---|
 | Suwayomi-Server (instalado pelo usuário no próprio computador) | MPL-2.0 | Executa as extensões; o FreeYomi é só um cliente da API. Nenhum código do Suwayomi é incluído no app |
-| API do MangaDex | Termos de uso da API (sem anúncios ou serviços pagos, crédito ao MangaDex e aos grupos) | Fonte nativa de leitura online |
+| Adaptador `mangadex-api-v5` | Código próprio (Apache-2.0). Nenhum endereço embutido; quem publica o manifesto é responsável pelos termos da API configurada | Só funciona com um manifesto instalado pelo usuário |
 
 ## Dados de terceiros
 
 | Dado | Licença | Uso |
 |---|---|---|
-| Índice `index.pb` do Keiyoushi (metadados) | Apache-2.0 (`keiyoushi/extensions-source`) | Baixado em tempo de execução; uma amostra de 10 extensões "seguras" está em `Packages/FreeYomiKit/Tests/FYSourcesTests/Fixtures/` |
+| Formatos de índice de repositório (Mihon) | Apache-2.0 (referência de interoperabilidade; nenhum código copiado) | Os repositórios são informados pelo usuário. Uma amostra de metadados públicos (10 extensões) é usada só como fixture de teste em `Packages/FreeYomiKit/Tests/FYSourcesTests/Fixtures/` e não entra no app |
 
 ## Referências consultadas (sem código copiado)
 

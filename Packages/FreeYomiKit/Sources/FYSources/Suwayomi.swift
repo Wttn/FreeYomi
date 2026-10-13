@@ -8,7 +8,7 @@ import FoundationNetworking
 // Cliente do Suwayomi-Server (https://github.com/Suwayomi/Suwayomi-Server, MPL-2.0).
 //
 // O servidor roda no computador/NAS do usuário e executa as extensões do
-// catálogo (Keiyoushi etc.) numa JVM. O FreeYomi só conversa com a API REST
+// catálogo (repositórios adicionados pelo usuário) numa JVM. O FreeYomi só conversa com a API REST
 // v1 do servidor: nenhum código de extensão roda no iPhone.
 //
 // Endpoints usados (conferidos em server/.../manga/MangaAPI.kt e GlobalAPI.kt,

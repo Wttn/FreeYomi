@@ -109,7 +109,11 @@ final class MangaDexTests: XCTestCase {
     let api = "https://api.mangadex.org"
 
     func source(_ stub: StubHTTP, adult: Bool = false) -> MangaDexSource {
-        MangaDexSource(language: "pt-br", includeAdult: adult, http: stub,
+        MangaDexSource(id: "fyx:org.teste.md/pt-br", name: "MangaDex", language: "pt-br", includeAdult: adult,
+                       endpoints: MangaDexEndpoints(api: api, covers: "https://uploads.mangadex.org",
+                                                    report: "https://api.mangadex.network/report",
+                                                    trustedImageHost: "mangadex.org"),
+                       http: stub,
                        limiter: RateLimiter(requestsPerSecond: 1000), atHomeLimiter: RateLimiter(requestsPerSecond: 1000))
     }
 
@@ -171,7 +175,8 @@ final class MangaDexTests: XCTestCase {
         XCTAssertEqual(pages.count, 2)
         guard case .remote(let url, let headers) = pages[1].image else { return XCTFail() }
         XCTAssertEqual(url, "https://xyz.abc.mangadex.network:443/token/data/h4sh/2.png")
-        XCTAssertEqual(headers[MangaDexReporter.marker], "1", "nós MangaDex@Home exigem relatório")
+        XCTAssertEqual(headers[MangaDexReporter.marker], "https://api.mangadex.network/report",
+                       "nós MangaDex@Home exigem relatório, no endpoint informado pelo manifesto")
     }
 
     func testRateLimitIsReportedClearly() async {

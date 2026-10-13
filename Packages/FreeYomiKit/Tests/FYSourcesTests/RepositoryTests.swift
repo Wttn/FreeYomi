@@ -11,13 +11,35 @@ final class RepositoryURLTests: XCTestCase {
                        "https://raw.githubusercontent.com/keiyoushi/extensions/repo/index.pb")
     }
 
+    /// Teste obrigatório 3: URLs inválidas ou perigosas são recusadas.
     func testNormalizeRejectsUnsafeOrIncomplete() {
         XCTAssertThrowsError(try RepositoryURL.normalize("http://exemplo.com/index.pb")) {
             XCTAssertTrue($0.localizedDescription.contains("HTTPS"), "\($0)")
         }
         XCTAssertThrowsError(try RepositoryURL.normalize(""))
         XCTAssertThrowsError(try RepositoryURL.normalize("https://exemplo.com"))
-        XCTAssertThrowsError(try RepositoryURL.normalize("https://exemplo.com/repo/index.min.json"))
+        for dangerous in ["file:///etc/passwd", "javascript:alert(1)", "JavaScript:alert(1)",
+                          "data:text/html,<script>alert(1)</script>", "ftp://exemplo.com/index.min.json",
+                          "content://x/index.json"] {
+            XCTAssertThrowsError(try RepositoryURL.normalize(dangerous), dangerous)
+            XCTAssertThrowsError(try RepositoryURL.normalize(dangerous, allowHTTP: true), dangerous)
+        }
+        XCTAssertThrowsError(try RepositoryURL.normalize("https://usuario:senha@exemplo.com/index.min.json")) {
+            XCTAssertTrue($0.localizedDescription.contains("senha"))
+        }
+        XCTAssertThrowsError(try RepositoryURL.normalize("https://exemplo.com/index min.json"))
+        XCTAssertThrowsError(try RepositoryURL.normalize("https://exemplo.com/" + String(repeating: "a", count: 3000)))
+    }
+
+    func testNormalizeAcceptsAllIndexFormatsAndExplicitHTTP() throws {
+        XCTAssertEqual(try RepositoryURL.normalize("https://exemplo.com/repo/index.min.json"),
+                       "https://exemplo.com/repo/index.min.json")
+        XCTAssertEqual(try RepositoryURL.normalize("exemplo.com:8443/repo/index.json"),
+                       "https://exemplo.com:8443/repo/index.json", "host:porta não é confundido com esquema")
+        XCTAssertEqual(try RepositoryURL.normalize("http://192.168.0.5:8080/index.min.json", allowHTTP: true),
+                       "http://192.168.0.5:8080/index.min.json")
+        XCTAssertTrue(RepositoryURL.isInsecure("http://192.168.0.5:8080/index.min.json"))
+        XCTAssertTrue(RepositoryURL.same("http://exemplo.com/index.pb", "https://exemplo.com/index.pb"))
     }
 
     func testGitHubRawFormsAreTheSameRepository() {
@@ -48,7 +70,7 @@ final class RepositoryURLTests: XCTestCase {
     func testRepositoryFromIndexAndSafeLinks() throws {
         let (_, data) = try ExtensionIndexDecoder.detect(try fixture())
         let index = try ExtensionIndexDecoder.decodeStore(data)
-        let repo = ExtensionRepository(indexURL: ExtensionRepository.keiyoushiURL, index: index)
+        let repo = ExtensionRepository(indexURL: "https://repo.example/index.pb", index: index)
         XCTAssertEqual(repo.name, "Keiyoushi")
         XCTAssertEqual(repo.badgeLabel, "KEI")
         XCTAssertEqual(repo.extensionCount, 10)
@@ -161,7 +183,9 @@ final class RepositorySettingsMigrationTests: XCTestCase {
         let s = try JSONDecoder().decode(AppSettings.self, from: Data(old.utf8))
         XCTAssertEqual(s.extensionRepositories, ["https://github.com/FelipeGFA/extensoes/raw/repo/index.pb"])
         let fresh = try JSONDecoder().decode(AppSettings.self, from: Data("{}".utf8))
-        XCTAssertEqual(fresh.extensionRepositories, [ExtensionRepository.keiyoushiURL])
+        XCTAssertEqual(fresh.extensionRepositories, [], "nenhum repositório de fábrica")
+        XCTAssertEqual(AppSettings().extensionRepositories, [])
+        XCTAssertEqual(AppSettings().catalogURL, "")
         let roundTrip = try JSONDecoder().decode(AppSettings.self, from: JSONEncoder().encode(s))
         XCTAssertEqual(roundTrip.extensionRepositories, s.extensionRepositories)
     }

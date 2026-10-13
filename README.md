@@ -20,9 +20,10 @@ Inspirado no funcionamento do [Mihon](https://github.com/mihonapp/mihon)/Tachiyo
 - Biblioteca em grade/lista, categorias, ordenação, busca, seleção em lote e emblema de não lidos.
 - Leitor inicial: paginado D→E e E→D, paginado vertical, vertical contínuo e webtoon, com zonas de toque, barra de progresso, troca de capítulo e salvamento automático do progresso.
 - Histórico com tempo de leitura, retomada, exclusão (com confirmação) e modo anônimo.
-- Catálogo de extensões Keiyoushi: download por HTTPS, gzip + protobuf decodificados, cache offline e classificação de compatibilidade.
+- Repositórios de extensões adicionados pelo próprio usuário (nenhum vem de fábrica): `index.min.json`, `repo.json`, `index.json`, `index.pb` e índices nativos do FreeYomi, com validação, cache offline e classificação honesta de compatibilidade. Ver [docs/EXTENSIONS_ARCHITECTURE.md](docs/EXTENSIONS_ARCHITECTURE.md).
 - Fonte de demonstração 100% local e fictícia.
-- **Fase 3:** instalar, atualizar e remover extensões e ler online por meio de um [servidor de extensões](docs/EXTENSION_SERVER.md) (Suwayomi-Server, no seu PC); fonte nativa **MangaDex** sem servidor; busca global; migração entre fontes.
+- **Fase 3:** extensões Android por meio de um [servidor de extensões](docs/EXTENSION_SERVER.md) do próprio usuário (Suwayomi-Server, no seu PC); busca global; migração entre fontes.
+- **0.4:** extensões nativas para iOS (manifestos declarativos + adaptadores Swift do app, com SHA-256), tela Extensões unificada, repositórios no banco local e nenhum repositório ou fonte online pré-configurado.
 - **Fase 2:** importação de CBZ, ZIP, EPUB de imagens e pastas (seletor de arquivos ou "Abrir com FreeYomi"), com extração segura e metadados de `ComicInfo.xml`; fonte "Arquivos locais" offline; zoom por pinça/toque duplo; escalas página inteira/largura/altura/original; pipeline de imagens com redução de resolução, cache e pré-carga; posição de rolagem salva dentro da página; brilho próprio no leitor.
 - Persistência SQLite com migrações, chaves compostas e recuperação de arquivo corrompido.
 

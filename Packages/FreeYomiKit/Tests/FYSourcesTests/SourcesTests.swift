@@ -167,19 +167,19 @@ final class CatalogClientTests: XCTestCase {
         }
     }
 
-    /// Teste opcional contra o índice real. Rode com FY_LIVE_TESTS=1.
-    func testLiveKeiyoushiIndex() async throws {
-        guard ProcessInfo.processInfo.environment["FY_LIVE_TESTS"] == "1" else {
-            throw XCTSkip("defina FY_LIVE_TESTS=1 para baixar o índice real")
+    /// Teste opcional contra um repositório escolhido por quem roda os testes:
+    /// FY_LIVE_INDEX_URL=<endereço> swift test --filter CatalogClientTests/testLiveRepositoryIndex
+    /// (nenhum endereço de repositório fica no projeto).
+    func testLiveRepositoryIndex() async throws {
+        guard let url = ProcessInfo.processInfo.environment["FY_LIVE_INDEX_URL"], !url.isEmpty else {
+            throw XCTSkip("defina FY_LIVE_INDEX_URL para baixar um índice real")
         }
         let client = ExtensionCatalogClient(http: URLSessionHTTPClient(), cacheDirectory: cacheDir)
-        let snap = try await client.refresh(from: AppSettings().catalogURL)
+        let snap = try await client.refresh(from: try RepositoryURL.normalize(url))
         XCTAssertFalse(snap.isFromCache)
-        XCTAssertEqual(snap.index.name, "Keiyoushi")
-        XCTAssertGreaterThan(snap.index.extensions.count, 500)
-        let ptBR = snap.index.extensions.filter { $0.languages.contains("pt-BR") }
-        XCTAssertGreaterThan(ptBR.count, 10)
-        print("LIVE: \(snap.index.extensions.count) extensões, \(ptBR.count) com pt-BR")
+        XCTAssertFalse(snap.index.name.isEmpty)
+        XCTAssertGreaterThan(snap.index.extensions.count, 0)
+        print("LIVE: \(snap.index.name) [\(snap.format.label)] \(snap.index.extensions.count) extensões")
     }
 }
 

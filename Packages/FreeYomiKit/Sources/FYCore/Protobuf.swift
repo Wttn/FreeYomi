@@ -2,7 +2,7 @@ import Foundation
 
 /// Decodificador mínimo do formato binário Protocol Buffers (wire format).
 ///
-/// Implementado à mão para evitar dependências: o índice Keiyoushi usa apenas
+/// Implementado à mão para evitar dependências: o índice de extensões usa apenas
 /// varints, strings e mensagens aninhadas. Campos desconhecidos são ignorados
 /// (compatibilidade futura), tipos de fio inválidos geram erro.
 public struct ProtobufReader {

@@ -23,12 +23,6 @@ jobs:
       - name: Testes
         working-directory: Packages/FreeYomiKit
         run: swift test --parallel
-      - name: Teste ao vivo do índice Keiyoushi (não bloqueante)
-        working-directory: Packages/FreeYomiKit
-        continue-on-error: true
-        env:
-          FY_LIVE_TESTS: "1"
-        run: swift test --filter CatalogClientTests/testLiveKeiyoushiIndex
 
   # App iOS: gera o projeto, compila, roda testes de interface e produz um .ipa sem assinatura.
   ios:

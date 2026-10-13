@@ -81,3 +81,23 @@ final class SecurityTests: XCTestCase {
         XCTAssertNil(PathSanitizer.safeRelativePath("C:/windows/x.png"))
     }
 }
+
+final class SHA256Tests: XCTestCase {
+    /// Vetores oficiais (FIPS 180-4 / NIST).
+    func testKnownVectors() {
+        XCTAssertEqual(SHA256.hex(Data()), "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")
+        XCTAssertEqual(SHA256.hex(Data("abc".utf8)), "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad")
+        XCTAssertEqual(SHA256.hex(Data("abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq".utf8)),
+                       "248d6a61d20638b8e5c026930c3e6039a33ce45964ff2167f6ecedd419db06c1")
+        XCTAssertEqual(SHA256.hex(Data(repeating: UInt8(ascii: "a"), count: 1_000_000)),
+                       "cdc76e5c9914fb9281a1c7e284d73e67f1809a48a497200e046d39ccc7112cd0")
+    }
+
+    func testMatchesIgnoresCaseAndSeparators() {
+        let data = Data("abc".utf8)
+        XCTAssertTrue(SHA256.matches(data, expectedHex: "BA7816BF8F01CFEA414140DE5DAE2223B00361A396177A9CB410FF61F20015AD"))
+        XCTAssertTrue(SHA256.matches(data, expectedHex: "ba:78:16:bf:8f:01:cf:ea:41:41:40:de:5d:ae:22:23:b0:03:61:a3:96:17:7a:9c:b4:10:ff:61:f2:00:15:ad"))
+        XCTAssertFalse(SHA256.matches(data, expectedHex: "ba7816"))
+        XCTAssertFalse(SHA256.matches(Data("abd".utf8), expectedHex: "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"))
+    }
+}

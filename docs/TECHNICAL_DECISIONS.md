@@ -190,3 +190,7 @@ Alvo mínimo: **iOS 17**, necessário para `@Observable`, `ContentUnavailableVie
 2. um runtime JVM/Dalvik para iOS sem JIT (o iOS proíbe JIT para apps comuns), além de reimplementar as APIs Android usadas pelas extensões (OkHttp, Jsoup, WebView, SharedPreferences, etc.).
 
 Isso só será considerado com decisão explícita do mantenedor, abrindo mão dessas regras e da App Store. Mesmo assim, entraria como modo opcional e isolado (as extensões sem acesso à biblioteca nem ao Keychain), e só depois de um protótipo provar que é viável. Até lá, o caminho suportado é o servidor de extensões.
+
+## 14. Repositórios adicionados pelo usuário e extensões nativas (0.4.0)
+
+Revisão de §13: o app deixa de trazer repositório padrão, sugestões e a fonte MangaDex ativada. Os repositórios passam para o banco (migração 2), os formatos `index.min.json`, `repo.json`, `index.json`, `index.pb` e `freeyomi.repository.v1` são aceitos, e extensões nativas (manifestos declarativos interpretados por adaptadores Swift do app, com SHA-256) podem ser instaladas no iPhone. Extensões Android continuam incompatíveis no aparelho. Análise completa, licenças, segurança e limitações: [`EXTENSIONS_ARCHITECTURE.md`](EXTENSIONS_ARCHITECTURE.md).

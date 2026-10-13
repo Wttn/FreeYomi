@@ -108,7 +108,7 @@ final class ImagePipeline {
                 } else {
                     // Marcadores internos nunca são enviados ao servidor.
                     var headers = rawHeaders
-                    let reportToMangaDex = headers.removeValue(forKey: MangaDexReporter.marker) != nil
+                    let reportEndpoint = headers.removeValue(forKey: MangaDexReporter.marker)
                     let isServer = url.host?.lowercased() == serverHost
                         && (url.port ?? (url.scheme == "https" ? 443 : 80)) == serverPort
                     let client: HTTPClient = (isServer ? serverHTTP : nil) ?? http
@@ -117,15 +117,16 @@ final class ImagePipeline {
                     do {
                         response = try await client.get(url, headers: headers)
                     } catch {
-                        if reportToMangaDex {
-                            await MangaDexReporter.report(url: urlString, success: false, cached: false, bytes: 0,
+                        if let reportEndpoint {
+                            await MangaDexReporter.report(to: reportEndpoint, url: urlString, success: false,
+                                                          cached: false, bytes: 0,
                                                           durationMs: Int(Date().timeIntervalSince(started) * 1000), http: http)
                         }
                         throw error
                     }
                     let ok = (200..<300).contains(response.statusCode) && ImageFormat.detect(response.body) != nil
-                    if reportToMangaDex {
-                        await MangaDexReporter.report(url: urlString, success: ok,
+                    if let reportEndpoint {
+                        await MangaDexReporter.report(to: reportEndpoint, url: urlString, success: ok,
                                                       cached: (response.headers["x-cache"] ?? "").hasPrefix("HIT"),
                                                       bytes: response.body.count,
                                                       durationMs: Int(Date().timeIntervalSince(started) * 1000), http: http)

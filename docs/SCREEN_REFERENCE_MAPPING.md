@@ -43,7 +43,7 @@ Não havia captura desta tela. Ela segue o padrão das demais (título grande, b
 | Seções "Último usado" e por idioma | `SourcesListView`, a partir de `sources.last_used_at` e do idioma da fonte; seção extra "Fixadas" |
 | ⚙︎ / 📌 | `SourceInfoSheet` e fixar/desafixar persistido |
 | ⚠︎ (status) | Situação da fonte: "Implementada" / "Aguardando desenvolvimento" / "Incompatível (requer Android)" |
-| Extensões | `ExtensionCatalogView`: índice Keiyoushi com origem, data da sincronização, filtro por idioma (padrão pt-BR), busca e classificação honesta de compatibilidade |
+| Extensões | `ExtensionsView`: só extensões dos repositórios do usuário ou de arquivos importados, com origem (selo), compatibilidade, estado (Disponível, Baixando, Instalada, Atualização disponível, Incompatível, Falha, Repositório indisponível), ação correspondente, pesquisa e filtros por idioma, estado e repositório |
 | Migrar | Tela informativa (Fase 3) |
 | Fontes da captura (Kagane, MangaFire, MangaDex, GlobalComix…) | **Não reproduzidas.** São extensões Android; listá-las como fontes funcionais violaria a regra "não declarar suporte só porque aparece no catálogo". Elas aparecem na aba Extensões como "Requer Android" |
 

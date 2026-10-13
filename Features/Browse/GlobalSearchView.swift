@@ -8,7 +8,7 @@ import FYServices
 /// Fontes usadas por padrão na busca global: idioma do usuário + multi-idioma + fixadas.
 @MainActor
 func defaultSearchSources(_ model: AppModel, excluding: SourceID? = nil, all: Bool = false) -> [SourceID] {
-    let preferred: Set<String> = ["pt-br", "pt", "all", "multi", model.settings.mangaDexLanguage.lowercased()]
+    let preferred: Set<String> = ["pt-br", "pt", "all", "multi"]
     let pinned = Set(((try? model.store.sources.all()) ?? []).filter(\.isPinned).map(\.id))
     return model.registry.all
         .filter { $0.kind != .demo && $0.id != excluding }
@@ -74,7 +74,7 @@ struct GlobalSearchView: View {
         .overlay {
             if results.isEmpty && !searching {
                 EmptyStateView(title: "Busque em todas as fontes", systemImage: "magnifyingglass",
-                               message: "Digite um título. As fontes do servidor de extensões e o MangaDex são consultados ao mesmo tempo.")
+                               message: "Digite um título. As fontes das extensões instaladas são consultadas ao mesmo tempo.")
             }
         }
     }
