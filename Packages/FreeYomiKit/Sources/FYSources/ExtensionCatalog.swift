@@ -367,6 +367,12 @@ public struct RepositoryCatalog: Sendable, Identifiable {
     public let error: String?
     public var id: String { indexURL }
 
+    public init(indexURL: String, snapshot: CatalogSnapshot?, error: String?) {
+        self.indexURL = indexURL
+        self.snapshot = snapshot
+        self.error = error
+    }
+
     public var repository: ExtensionRepository {
         if let s = snapshot { return ExtensionRepository(indexURL: indexURL, index: s.index) }
         return ExtensionRepository(indexURL: indexURL, name: RepositoryURL.displayName(indexURL))
