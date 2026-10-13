@@ -48,6 +48,10 @@ Data: 13/10/2026 · Versão: 0.2.0 (2)
 
 Log: `docs/test-results/phase2-core-linux.txt`.
 
+## Correção após o primeiro CI da Fase 2
+
+O app compilou no Xcode 26.6 e 7 dos 8 testes de interface passaram. `testWebtoonScrollingMemory` revelou um **travamento real**: ao rolar até o fim de um capítulo no modo webtoon, a thread principal deixava de responder. Causa provável: a página trocava de altura ao descarregar a imagem fora da tela (o espaço reservado tinha uma proporção um pouco diferente da imagem decodificada), entrando num ciclo de aparecer/desaparecer na borda da área visível. Correção: a altura de cada página passou a ser fixada pela proporção lida do arquivo, antes e depois de carregar; as imagens não são mais descartadas manualmente ao sair da tela (a lista preguiçosa e o `NSCache` cuidam disso); e o espaço reservado não tem animação infinita. O teste agora também verifica que o app continua respondendo após rolar até o fim.
+
 ## Pendências e problemas conhecidos
 
 1. **Compilação do app no Xcode ainda não confirmada** para o código novo; corrijo o que o CI apontar.

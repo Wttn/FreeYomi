@@ -60,9 +60,12 @@ final class ReaderPhase2UITests: XCTestCase {
         let options = XCTMeasureOptions()
         options.iterationCount = 3
         measure(metrics: [XCTMemoryMetric(application: app)], options: options) {
-            for _ in 0..<6 { app.swipeUp(velocity: .fast) }
-            for _ in 0..<6 { app.swipeDown(velocity: .fast) }
+            for _ in 0..<8 { app.swipeUp() }   // até o fim do capítulo, incluindo a faixa longa
+            for _ in 0..<8 { app.swipeDown() } // e de volta ao início
         }
         XCTAssertEqual(app.state, .runningForeground, "o app não pode encerrar por falta de memória")
+        // O app continua respondendo após rolar até o fim (regressão do travamento na borda).
+        app.tap()
+        XCTAssertTrue(app.buttons["Fechar leitor"].waitForExistence(timeout: 10))
     }
 }

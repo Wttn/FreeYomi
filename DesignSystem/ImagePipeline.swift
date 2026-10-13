@@ -103,7 +103,9 @@ final class ImagePipeline {
         let image = try await task.value
         let cost = Int(image.size.width * image.scale * image.size.height * image.scale * 4)
         memory.setObject(image, forKey: k as NSString, cost: cost)
-        aspectCache[aspectKey(ref)] = image.size.height / max(image.size.width, 1)
+        if aspectCache[aspectKey(ref)] == nil {
+            aspectCache[aspectKey(ref)] = image.size.height / max(image.size.width, 1)
+        }
         return image
     }
 
@@ -211,25 +213,18 @@ struct PipelineImage: View {
     }
 
     var body: some View {
+        // Com proporção conhecida, o contêiner tem a MESMA altura antes e
+        // depois do carregamento: o layout do modo vertical nunca "salta"
+        // (alturas variando ao carregar/descarregar podiam gerar um ciclo de
+        // aparecer/desaparecer na borda da área visível e travar a rolagem).
         Group {
-            if let image {
-                Image(uiImage: image).resizable().aspectRatio(contentMode: contentMode)
-            } else if let failed {
-                VStack(spacing: 10) {
-                    Image(systemName: "exclamationmark.triangle").font(.title)
-                    Text(errorIndex.map { "Página \($0 + 1) indisponível" } ?? "Imagem indisponível").font(.callout)
-                    Text(failed).font(.caption).multilineTextAlignment(.center).foregroundStyle(.secondary)
-                    Button("Tentar novamente") { self.failed = nil; attempt += 1 }.fySecondaryButton()
-                }
-                .padding()
-                .frame(maxWidth: .infinity, minHeight: 240)
+            if let aspect = placeholderAspect {
+                Color.clear
+                    .aspectRatio(1 / aspect, contentMode: .fit)
+                    .overlay { content }
+                    .clipped()
             } else {
-                ZStack {
-                    Color.gray.opacity(0.12)
-                    ProgressView()
-                }
-                .aspectRatio(placeholderAspect.map { 1 / $0 }, contentMode: .fit)
-                .frame(minHeight: placeholderAspect == nil ? 240 : nil)
+                content
             }
         }
         .task(id: "\(attempt)|\(ref.hashValue)|\(Int(targetPointWidth))") {
@@ -240,6 +235,30 @@ struct PipelineImage: View {
                 if !Task.isCancelled { failed = error.localizedDescription }
             }
         }
-        .onDisappear { image = nil } // libera memória fora da tela (o NSCache mantém o recente)
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        if let image {
+            Image(uiImage: image).resizable().aspectRatio(contentMode: contentMode)
+        } else if let failed {
+            VStack(spacing: 10) {
+                Image(systemName: "exclamationmark.triangle").font(.title)
+                Text(errorIndex.map { "Página \($0 + 1) indisponível" } ?? "Imagem indisponível").font(.callout)
+                Text(failed).font(.caption).multilineTextAlignment(.center).foregroundStyle(.secondary)
+                Button("Tentar novamente") { self.failed = nil; attempt += 1 }.fySecondaryButton()
+            }
+            .padding()
+            .frame(maxWidth: .infinity, minHeight: placeholderAspect == nil ? 240 : nil)
+        } else {
+            // Sem animação infinita: um indicador girando impede o "app ocioso"
+            // dos testes e gasta energia em páginas fora de foco.
+            ZStack {
+                Color.gray.opacity(0.12)
+                Image(systemName: "photo").font(.title).foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity, minHeight: placeholderAspect == nil ? 240 : nil)
+            .accessibilityLabel("Carregando página")
+        }
     }
 }
