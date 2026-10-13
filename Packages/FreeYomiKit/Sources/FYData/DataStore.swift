@@ -211,7 +211,7 @@ public struct LibraryRepository: Sendable {
     /// - Parameters:
     ///   - categoryId: filtra por categoria (`nil` = todas).
     ///   - search: filtra por título/autor (sem diferenciar maiúsculas).
-    public func items(categoryId: Int64? = nil, search: String? = nil, sort: LibrarySort = .alphabetical) throws -> [LibraryItem] {
+    public func items(categoryId: Int64? = nil, search: String? = nil, sort: LibrarySort = .alphabetical) throws -> [LibraryTitle] {
         var sql = """
             SELECT m.*, l.added_at AS l_added_at,
                 (SELECT COUNT(*) FROM chapters c WHERE c.manga_id = m.id AND c.is_read = 0) AS unread,
@@ -245,7 +245,7 @@ public struct LibraryRepository: Sendable {
 
         return try db.query(sql, arguments: args).map { row in
             let cats = row.optionalString("cats")?.split(separator: ",").compactMap { Int64($0) } ?? []
-            return LibraryItem(
+            return LibraryTitle(
                 manga: Manga(row: row),
                 entry: LibraryEntry(mangaId: row.int64("id"), addedAt: row.date("l_added_at"), categoryIds: cats),
                 unreadCount: row.int("unread"),

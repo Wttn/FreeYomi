@@ -207,7 +207,7 @@ public struct LibraryEntry: Hashable, Codable, Sendable {
 }
 
 /// Linha exibida na Biblioteca (título + dados agregados).
-public struct LibraryItem: Hashable, Sendable, Identifiable {
+public struct LibraryTitle: Hashable, Sendable, Identifiable {
     public var manga: Manga
     public var entry: LibraryEntry
     public var unreadCount: Int

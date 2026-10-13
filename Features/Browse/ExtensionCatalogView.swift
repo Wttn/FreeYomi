@@ -134,9 +134,9 @@ struct ExtensionRow: View {
                      + (ext.languages.count > 4 ? " +\(ext.languages.count - 4)" : ""))
                     .font(.caption).foregroundStyle(.secondary).lineLimit(1)
                 HStack(spacing: 6) {
-                    tag(compat.label, color: compat == .requiresAndroid ? .orange : .green)
+                    pill(compat.label, color: compat == .requiresAndroid ? .orange : .green)
                     if ext.contentWarning == .nsfw || ext.contentWarning == .mixed {
-                        tag(ext.contentWarning.label, color: .red)
+                        pill(ext.contentWarning.label, color: .red)
                     }
                 }
             }
@@ -144,7 +144,7 @@ struct ExtensionRow: View {
         .accessibilityElement(children: .combine)
     }
 
-    private func tag(_ text: String, color: Color) -> some View {
+    private func pill(_ text: String, color: Color) -> some View {
         Text(text)
             .font(.caption2.weight(.semibold))
             .padding(.horizontal, 6).padding(.vertical, 2)

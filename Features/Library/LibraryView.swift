@@ -10,7 +10,7 @@ import FYServices
 struct LibraryView: View {
     @Environment(AppModel.self) private var model
 
-    @State private var items: [LibraryItem] = []
+    @State private var items: [LibraryTitle] = []
     @State private var categories: [MangaCategory] = []
     @State private var selectedCategory: Int64? = nil
     @State private var searchText = ""
@@ -25,7 +25,7 @@ struct LibraryView: View {
             content
                 .navigationTitle("Biblioteca")
                 .toolbarTitleDisplayMode(.inlineLarge)
-                .toolbar { toolbar }
+                .toolbar { toolbarContent }
                 .searchable(text: $searchText, isPresented: $isSearching, prompt: "Pesquisar na biblioteca")
                 .task(id: reloadKey) { reload() }
                 .refreshable { await model.refreshLibrary() }
@@ -133,7 +133,7 @@ struct LibraryView: View {
 
     /// Envolve a célula com navegação, seleção múltipla e menu contextual.
     @ViewBuilder
-    private func cell<Content: View>(_ item: LibraryItem, @ViewBuilder _ label: () -> Content) -> some View {
+    private func cell<Content: View>(_ item: LibraryTitle, @ViewBuilder _ label: () -> Content) -> some View {
         let selected = selection.contains(item.id)
         if isSelecting {
             Button {
@@ -155,12 +155,12 @@ struct LibraryView: View {
         } else {
             NavigationLink(value: item.manga.id) { label() }
                 .buttonStyle(.plain)
-                .contextMenu { contextMenu(for: item) }
+                .contextMenu { itemMenu(for: item) }
         }
     }
 
     @ViewBuilder
-    private func contextMenu(for item: LibraryItem) -> some View {
+    private func itemMenu(for item: LibraryTitle) -> some View {
         Button {
             markAllRead([item.id])
         } label: { Label("Marcar tudo como lido", systemImage: "checkmark.circle") }
@@ -174,7 +174,7 @@ struct LibraryView: View {
     }
 
     @ToolbarContentBuilder
-    private var toolbar: some ToolbarContent {
+    private var toolbarContent: some ToolbarContent {
         if isSelecting {
             ToolbarItem(placement: .topBarLeading) {
                 Button("Tudo") { selection = Set(items.map(\.id)) }
@@ -241,7 +241,7 @@ struct LibraryView: View {
 // MARK: - Células
 
 struct LibraryGridCell: View {
-    let item: LibraryItem
+    let item: LibraryTitle
     let overlayTitle: Bool
     let showBadge: Bool
     var compact: Bool = false
@@ -292,7 +292,7 @@ struct LibraryGridCell: View {
 }
 
 struct LibraryListRow: View {
-    let item: LibraryItem
+    let item: LibraryTitle
     let showBadge: Bool
 
     var body: some View {

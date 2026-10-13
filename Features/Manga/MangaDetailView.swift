@@ -192,7 +192,7 @@ struct MangaDetailView: View {
         }
         .contextMenu {
             Button {
-                let ids = chapters.prefix { $0.id != chapter.id }.map(\.id) + [chapter.id]
+                let ids = chapters.prefix(while: { $0.id != chapter.id }).map(\.id) + [chapter.id]
                 model.mutate { try model.store.chapters.setRead(ids, read: true) }
             } label: { Label("Marcar este e anteriores como lidos", systemImage: "checkmark.circle") }
         }
