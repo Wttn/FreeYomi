@@ -41,6 +41,20 @@ struct RootTabView: View {
                 .tag(AppTab.more)
         }
         .fyTabBarMinimizeOnScroll()
+        .overlay(alignment: .top) {
+            if model.isImporting {
+                HStack(spacing: 10) {
+                    ProgressView()
+                    Text(model.importStatus ?? "Importando…").font(.subheadline.weight(.medium)).lineLimit(1)
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
+                .fyGlass(in: Capsule())
+                .padding(.top, 8)
+                .transition(.move(edge: .top).combined(with: .opacity))
+                .accessibilityElement(children: .combine)
+            }
+        }
         .alert("Aviso", isPresented: Binding(
             get: { model.alertMessage != nil },
             set: { if !$0 { model.alertMessage = nil } }

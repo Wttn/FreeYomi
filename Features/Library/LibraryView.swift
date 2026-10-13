@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 import FYDomain
 import FYCore
 import FYData
@@ -19,6 +20,7 @@ struct LibraryView: View {
     @State private var isSelecting = false
     @State private var selection = Set<Int64>()
     @State private var loadError: String?
+    @State private var showImporter = false
 
     var body: some View {
         NavigationStack {
@@ -32,8 +34,22 @@ struct LibraryView: View {
                 .sheet(isPresented: $showOptions) { LibraryOptionsSheet(categories: categories) }
                 .navigationDestination(for: Int64.self) { MangaDetailView(mangaId: $0) }
                 .safeAreaInset(edge: .bottom) { if isSelecting { selectionBar } }
+                .fileImporter(isPresented: $showImporter, allowedContentTypes: Self.importTypes,
+                              allowsMultipleSelection: true) { result in
+                    switch result {
+                    case .success(let urls): Task { await model.importFiles(urls) }
+                    case .failure(let error): model.report(error)
+                    }
+                }
         }
     }
+
+    /// CBZ, ZIP, EPUB e pastas.
+    static let importTypes: [UTType] = {
+        var types: [UTType] = [.zip, .epub, .folder]
+        if let cbz = UTType(filenameExtension: "cbz") { types.insert(cbz, at: 0) }
+        return types
+    }()
 
     private var reloadKey: String {
         "\(model.dataVersion)|\(searchText)|\(selectedCategory ?? -1)|\(model.settings.librarySort.rawValue)"
@@ -75,8 +91,12 @@ struct LibraryView: View {
         if !searchText.isEmpty {
             ContentUnavailableView.search(text: searchText)
         } else {
-            EmptyStateView(title: "Biblioteca vazia", systemImage: "books.vertical",
-                           message: "Adicione títulos pela aba Explorar. Tudo fica salvo apenas neste aparelho.")
+            VStack(spacing: 16) {
+                EmptyStateView(title: "Biblioteca vazia", systemImage: "books.vertical",
+                               message: "Importe arquivos CBZ, ZIP, EPUB ou pastas de imagens, ou adicione títulos pela aba Explorar. Tudo fica salvo apenas neste aparelho.")
+                Button { showImporter = true } label: { Label("Importar arquivos", systemImage: "plus") }
+                    .fyProminentButton()
+            }
         }
     }
 
@@ -183,6 +203,12 @@ struct LibraryView: View {
                 Button("OK") { isSelecting = false; selection = [] }.bold()
             }
         } else {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button { showImporter = true } label: {
+                    Label("Importar arquivos", systemImage: "plus")
+                }
+                .disabled(model.isImporting)
+            }
             ToolbarItem(placement: .topBarTrailing) {
                 Button { showOptions = true } label: {
                     Label("Filtros e exibição", systemImage: "line.3.horizontal.decrease")

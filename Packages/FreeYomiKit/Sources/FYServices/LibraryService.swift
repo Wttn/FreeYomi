@@ -101,6 +101,45 @@ public final class LibraryService: @unchecked Sendable {
     }
 }
 
+// MARK: - Arquivos locais
+
+public struct LocalImportReport: Sendable {
+    public var imported: [Manga] = []
+    public var duplicates: [String] = []
+    public var failures: [(name: String, reason: String)] = []
+    public var skippedFiles = 0
+    public init() {}
+}
+
+extension LibraryService {
+    /// Importa arquivos/pastas e os adiciona à biblioteca. Um erro em um item
+    /// não interrompe os demais. Chamada fora da thread principal.
+    public func importLocal(urls: [URL], importer: LocalImporter, categoryIds: [Int64] = []) async -> LocalImportReport {
+        var report = LocalImportReport()
+        for url in urls {
+            if Task.isCancelled { break }
+            do {
+                let result = try importer.importItem(at: url)
+                report.skippedFiles += result.skipped.count
+                let sm = SourceManga(key: result.manifest.id, title: result.manifest.title)
+                let manga = try await addToLibrary(sm, sourceId: .local, categoryIds: categoryIds)
+                if result.wasDuplicate { report.duplicates.append(result.manifest.title) }
+                else { report.imported.append(manga) }
+            } catch {
+                report.failures.append((url.lastPathComponent, error.localizedDescription))
+            }
+        }
+        return report
+    }
+
+    /// Remove um título importado: arquivos, capítulos, progresso e histórico.
+    public func deleteLocalManga(_ manga: Manga, store localStore: LocalLibraryStore) throws {
+        guard manga.sourceId == .local else { throw FYError.unsupported("o título não é um arquivo local") }
+        try localStore.delete(id: manga.key)
+        try store.db.run("DELETE FROM manga WHERE id = ?", manga.id)
+    }
+}
+
 public struct RefreshReport: @unchecked Sendable {
     public var startedAt: Date
     public var finishedAt: Date?

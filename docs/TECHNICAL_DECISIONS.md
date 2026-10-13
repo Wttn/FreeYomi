@@ -129,3 +129,24 @@ Alvo mínimo: **iOS 17**, necessário para `@Observable`, `ContentUnavailableVie
 | Atualizações em segundo plano limitadas pelo iOS | Baixo | Documentado; atualização manual sempre disponível. |
 | Conta Apple gratuita: assinatura dura 7 dias | Baixo | Reassinar com Sideloadly/AltStore; ou Apple Developer Program (pago, da Apple, não do app). |
 | Mudança no esquema do `index.pb` | Baixo | Campos desconhecidos são ignorados; cache local; teste ao vivo (não bloqueante) no CI detecta mudanças. |
+
+---
+
+## 11. Decisões da Fase 2 (biblioteca local e leitor)
+
+| Tema | Decisão | Motivo |
+|---|---|---|
+| Leitura de ZIP/CBZ/EPUB | Leitor próprio (`FYCore/ZipArchive.swift`) sobre a zlib do sistema | Sem dependências; entrada tratada como não confiável: limites de entradas/tamanho/taxa de compressão, CRC-32 obrigatório, tamanho descomprimido exato, recusa de ZIP criptografado, ZIP64 e multi-volume com mensagem clara |
+| "Zip slip" | Nenhum nome vindo do arquivo vira caminho de destino: as páginas são renumeradas (`c0001/0001.jpg`) em uma pasta criada pelo app; nomes inseguros são ignorados e relatados | Elimina a classe de ataque por construção, além do `PathSanitizer` |
+| Validação de imagens | Pelo conteúdo (assinatura JPEG/PNG/GIF/WebP/HEIC/AVIF/BMP), não pela extensão | Evita gravar arquivos disfarçados |
+| CBR/RAR e CB7/7z | **Não suportados**; o app explica e sugere converter para CBZ | A licença do UnRAR não é open source compatível; 7z exigiria dependência grande. Pode ser reavaliado com uma biblioteca de licença compatível |
+| EPUB | Só EPUBs de imagens (mangás/quadrinhos): ordem do *spine*, `<img src>` e `<image xlink:href>` | EPUB de texto exige um motor de layout próprio (fora do escopo de um leitor de mangás); recusado com mensagem clara |
+| Estrutura de importação | Arquivo → 1 capítulo (ou 1 por pasta interna, se for um volume com pastas); pasta de imagens → 1 capítulo; pasta com subpastas/CBZs → 1 capítulo por item; metadados de `ComicInfo.xml` | Cobre os formatos mais comuns de coleções pessoais |
+| Duplicatas | Impressão digital (nome + tamanho + páginas); reimportar não duplica | Requisito "evitar duplicados" |
+| Armazenamento | Páginas extraídas em `Application Support/FreeYomi/LocalFiles` (o original não é alterado) | Leitura offline rápida, sem reabrir o ZIP a cada página |
+| Imagens | `ImagePipeline` com ImageIO: decodificação já reduzida à largura da tela (2× para zoom), pela LARGURA no caso de faixas de webtoon, teto de ~48 MP; `NSCache` limitado a 160 MB e esvaziado em alerta de memória; cache em disco de 300 MB (LRU) para imagens remotas; requisições compartilhadas; pré-carga configurável e cancelada ao sair | Requisitos de desempenho/memória da seção 8 |
+| Zoom | `UIScrollView` nativo (pinça e toque duplo) nos modos paginados; sem zoom, gestos horizontais passam para o paginador | Componente de zoom do sistema; suave e acessível |
+| Zoom nos modos verticais | **Pendente** | Exige um leitor contínuo baseado em `UIScrollView`/`UICollectionView` com zoom do conjunto; planejado para a Fase 5 |
+| Posição na rolagem vertical | Página que cruza o topo + deslocamento 0–1 dentro dela, salvos 1 s após parar de rolar, ao trocar de capítulo, ao sair e ao ir para segundo plano | Recuperação após encerramento inesperado |
+| Layout estável no vertical | Proporções das páginas locais lidas só do cabeçalho (sem decodificar) antes de exibir | Evita "saltos" ao restaurar a posição |
+| Restauração do deslocamento | Âncora proporcional do `ScrollViewReader` | Aproximação documentada: exata no topo da página, com erro de até uma fração da altura da tela em páginas curtas |

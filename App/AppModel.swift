@@ -17,6 +17,13 @@ final class AppModel {
     let registry: SourceRegistry
     let service: LibraryService
     let catalog: ExtensionCatalogClient
+    /// Títulos importados (CBZ/ZIP/EPUB/pastas), dentro do contêiner do app.
+    let localStore: LocalLibraryStore
+    let importer: LocalImporter
+
+    /// Importação em andamento e resultado da última.
+    var isImporting = false
+    var importStatus: String?
 
     /// Preferências; cada alteração é salva imediatamente no SQLite.
     var settings: AppSettings {
@@ -41,9 +48,12 @@ final class AppModel {
 
     private var didBootstrap = false
 
-    init(store: DataStore, registry: SourceRegistry, catalogCache: URL) {
+    init(store: DataStore, registry: SourceRegistry, catalogCache: URL, localStore: LocalLibraryStore) {
         self.store = store
         self.registry = registry
+        self.localStore = localStore
+        self.importer = LocalImporter(store: localStore)
+        ImagePipeline.shared.localRoot = localStore.root
         self.service = LibraryService(store: store, registry: registry)
         self.catalog = ExtensionCatalogClient(http: URLSessionHTTPClient(), cacheDirectory: catalogCache)
         self.settings = store.settings.load()
@@ -57,11 +67,16 @@ final class AppModel {
                                    create: true)) ?? fm.temporaryDirectory
         let caches = (try? fm.url(for: .cachesDirectory, in: .userDomainMask, appropriateFor: nil, create: true))
             ?? fm.temporaryDirectory
-        let registry = SourceRegistry.makeDefault()
+        let uiTesting = ProcessInfo.processInfo.arguments.contains("-ui-testing")
+        let localRoot = uiTesting
+            ? fm.temporaryDirectory.appendingPathComponent("ui-tests-local-\(UUID().uuidString)", isDirectory: true)
+            : support.appendingPathComponent("FreeYomi/LocalFiles", isDirectory: true)
+        let localStore = LocalLibraryStore(root: localRoot)
+        let registry = SourceRegistry.makeDefault(localStore: localStore)
 
-        if ProcessInfo.processInfo.arguments.contains("-ui-testing"),
-           let mem = try? DataStore.inMemory() {
-            return AppModel(store: mem, registry: registry, catalogCache: caches.appendingPathComponent("ui-tests"))
+        if uiTesting, let mem = try? DataStore.inMemory() {
+            return AppModel(store: mem, registry: registry, catalogCache: caches.appendingPathComponent("ui-tests"),
+                            localStore: localStore)
         }
 
         let dbURL = support.appendingPathComponent("FreeYomi", isDirectory: true)
@@ -69,7 +84,8 @@ final class AppModel {
         do {
             let store = try DataStore.open(fileURL: dbURL)
             let model = AppModel(store: store, registry: registry,
-                                 catalogCache: caches.appendingPathComponent("catalog", isDirectory: true))
+                                 catalogCache: caches.appendingPathComponent("catalog", isDirectory: true),
+                                 localStore: localStore)
             if store.recoveredFromCorruption {
                 model.startupNotice = "O banco de dados estava danificado e foi recriado. "
                     + "O arquivo original foi preservado para recuperação manual."
@@ -78,7 +94,7 @@ final class AppModel {
         } catch {
             // Último recurso: banco temporário para o app abrir mesmo assim.
             let mem = try! DataStore.inMemory()
-            let model = AppModel(store: mem, registry: registry, catalogCache: caches)
+            let model = AppModel(store: mem, registry: registry, catalogCache: caches, localStore: localStore)
             model.startupNotice = "Não foi possível abrir a biblioteca local (\(error.localizedDescription)). "
                 + "Os dados desta sessão não serão salvos."
             return model
@@ -93,11 +109,17 @@ final class AppModel {
             try service.syncSourceTable()
             try await service.seedDemoDataIfNeeded()
             settings = store.settings.load()
+            if ProcessInfo.processInfo.arguments.contains("-ui-testing-sample"),
+               let sample = try? SampleArchive.make() {
+                await importFiles([sample], securityScoped: false)
+            }
         } catch {
             report(error)
         }
         if let notice = startupNotice { alertMessage = notice }
         dataVersion += 1
+        let disk = ImagePipeline.shared.disk
+        Task.detached(priority: .background) { disk.trim() }
     }
 
     // MARK: - Mutações
@@ -136,6 +158,51 @@ final class AppModel {
             settings = store.settings.load()
         } catch { report(error) }
         dataVersion += 1
+    }
+
+    // MARK: - Arquivos locais
+
+    /// Importa arquivos/pastas escolhidos pelo usuário. URLs do seletor de
+    /// arquivos são "security-scoped": o acesso é liberado só durante a cópia.
+    func importFiles(_ urls: [URL], securityScoped: Bool = true) async {
+        guard !urls.isEmpty, !isImporting else { return }
+        isImporting = true
+        importStatus = urls.count == 1 ? "Importando \(urls[0].lastPathComponent)…" : "Importando \(urls.count) itens…"
+        let granted = securityScoped ? urls.map { $0.startAccessingSecurityScopedResource() } : []
+        let categories = settings.defaultCategoryId.map { [$0] } ?? []
+        let report = await service.importLocal(urls: urls, importer: importer, categoryIds: categories)
+        for (url, ok) in zip(urls, granted) where ok { url.stopAccessingSecurityScopedResource() }
+        isImporting = false
+        importStatus = nil
+        dataVersion += 1
+
+        var lines: [String] = []
+        if !report.imported.isEmpty {
+            lines.append("Importado(s): " + report.imported.map(\.title).joined(separator: ", ") + ".")
+        }
+        if !report.duplicates.isEmpty {
+            lines.append("Já estavam na biblioteca: " + report.duplicates.joined(separator: ", ") + ".")
+        }
+        for f in report.failures { lines.append("Falha em \(f.name): \(f.reason)") }
+        if report.skippedFiles > 0 { lines.append("\(report.skippedFiles) arquivo(s) que não são imagens foram ignorados.") }
+        if !report.failures.isEmpty || !report.duplicates.isEmpty || report.skippedFiles > 0 {
+            alertMessage = lines.joined(separator: "\n")
+        } else if !report.imported.isEmpty {
+            Haptics.success()
+        }
+    }
+
+    /// Arquivo aberto a partir de outro app ("Abrir com FreeYomi").
+    func handleOpenURL(_ url: URL) {
+        Task {
+            await importFiles([url], securityScoped: true)
+            // Cópias recebidas em Documents/Inbox não são mais necessárias.
+            if url.path.contains("/Inbox/") { try? FileManager.default.removeItem(at: url) }
+        }
+    }
+
+    func deleteLocalFiles(of manga: Manga) {
+        mutate { try service.deleteLocalManga(manga, store: localStore) }
     }
 
     func removeDemoData() {

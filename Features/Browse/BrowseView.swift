@@ -190,7 +190,9 @@ struct SourceCatalogView: View {
             } else if !isLoading && items.isEmpty {
                 // Catálogo vazio ≠ fonte indisponível.
                 EmptyStateView(title: "Nenhum título", systemImage: "tray",
-                               message: query.isEmpty ? "Esta fonte não retornou títulos." : "Nada encontrado para \"\(query)\".")
+                               message: !query.isEmpty ? "Nada encontrado para \"\(query)\"."
+                                   : (sourceId == .local ? "Importe arquivos CBZ, ZIP, EPUB ou pastas pelo botão + da Biblioteca."
+                                      : "Esta fonte não retornou títulos."))
             } else {
                 ScrollView {
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 110), spacing: 10)], spacing: 12) {

@@ -5,30 +5,45 @@ import FYData
 import FYSources
 import FYServices
 
-/// Leitor (versão inicial da Fase 1).
+/// Leitor de capítulos.
 ///
-/// Implementado: paginado D→E e E→D, paginado vertical, vertical contínuo e
-/// webtoon; zonas de toque; barra de progresso; navegação entre capítulos;
-/// salvamento automático do progresso e histórico; manter tela ativa.
-/// Pendente (Fase 2): zoom por gesto, ajuste à largura/altura, pipeline de
-/// imagens com cache em disco e pré-carregamento explícito.
+/// - Modos: paginado D→E e E→D, paginado vertical, vertical contínuo e webtoon.
+/// - Modos paginados: zoom por pinça/toque duplo (`ZoomablePageView`) e
+///   escalas página inteira / largura / altura / original.
+/// - Pipeline de imagens com redução de resolução, cache e pré-carregamento
+///   das próximas páginas; pré-carga cancelada ao sair.
+/// - Progresso salvo automaticamente: página atual e, nos modos verticais,
+///   o deslocamento dentro da página (0–1), também em segundo plano.
 struct ReaderView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.scenePhase) private var scenePhase
 
     let launch: ReaderLaunch
 
     @State private var chapterIndex: Int
     @State private var pages: [Page] = []
     @State private var current = 0
-    @State private var scrolledID: Int?
+    @State private var scrollOffset: Double = 0
     @State private var isLoading = true
     @State private var errorMessage: String?
     @State private var showControls = true
     @State private var mode: ReadingMode = .pagedRightToLeft
+    @State private var scale: PageScale = .fitScreen
     @State private var sessionStart = Date()
     @State private var didRestorePosition = false
+    @State private var scrollRequest: ScrollRequest?
+    @State private var pendingSave: Task<Void, Never>?
+    @State private var isZoomed = false
+    @State private var originalBrightness: CGFloat?
+
+    /// Pedido de rolagem para os modos verticais (restaurar posição, barra de páginas).
+    struct ScrollRequest: Equatable {
+        let id = UUID()
+        let page: Int
+        let offset: Double
+    }
 
     init(launch: ReaderLaunch) {
         self.launch = launch
@@ -37,6 +52,10 @@ struct ReaderView: View {
 
     private var chapter: Chapter? {
         launch.chapters.indices.contains(chapterIndex) ? launch.chapters[chapterIndex] : nil
+    }
+
+    private var screenWidth: CGFloat {
+        (UIApplication.shared.connectedScenes.first as? UIWindowScene)?.screen.bounds.width ?? 390
     }
 
     var body: some View {
@@ -56,17 +75,26 @@ struct ReaderView: View {
         .persistentSystemOverlays(.hidden)
         .preferredColorScheme(.dark)
         .task(id: chapterIndex) { await loadChapter() }
-        .onChange(of: current) { _, _ in saveProgress() }
-        .onChange(of: scrolledID) { _, new in
-            if let new, new != current { current = new }
+        .onChange(of: current) { _, _ in
+            saveProgress()
+            prefetchAhead()
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase != .active { saveProgress(); closeSession() }
         }
         .onAppear {
             mode = model.settings.reader.mode
+            scale = model.settings.reader.scale
             UIApplication.shared.isIdleTimerDisabled = model.settings.reader.keepScreenOn
+            applyBrightness()
         }
         .onDisappear {
+            pendingSave?.cancel()
+            saveProgress()
             closeSession()
+            ImagePipeline.shared.cancelPrefetch()
             UIApplication.shared.isIdleTimerDisabled = false
+            restoreBrightness()
         }
     }
 
@@ -74,23 +102,15 @@ struct ReaderView: View {
 
     @ViewBuilder
     private var readerContent: some View {
-        GeometryReader { geo in
-            Group {
-                switch mode {
-                case .pagedRightToLeft, .pagedLeftToRight:
-                    horizontalPager
-                case .pagedVertical:
-                    verticalScroller(paging: true, spacing: 0)
-                case .continuousVertical:
-                    verticalScroller(paging: false, spacing: 6)
-                case .webtoon:
-                    verticalScroller(paging: false, spacing: 0)
-                }
-            }
-            .contentShape(Rectangle())
-            .onTapGesture { location in
-                handleTap(relativeX: geo.size.width > 0 ? location.x / geo.size.width : 0.5)
-            }
+        switch mode {
+        case .pagedRightToLeft, .pagedLeftToRight:
+            horizontalPager
+        case .pagedVertical:
+            verticalReader(paging: true, spacing: 0)
+        case .continuousVertical:
+            verticalReader(paging: false, spacing: 6)
+        case .webtoon:
+            verticalReader(paging: false, spacing: 0)
         }
     }
 
@@ -100,8 +120,9 @@ struct ReaderView: View {
         let ordered = mode == .pagedRightToLeft ? Array(pages.reversed()) : pages
         return TabView(selection: $current) {
             ForEach(ordered) { page in
-                PageImageView(page: page)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                PagedReaderPage(page: page, scale: scale, pointWidth: screenWidth,
+                                onTap: { handleTap(relativeX: $0) },
+                                onZoomChange: { isZoomed = $0 })
                     .tag(page.index)
             }
         }
@@ -109,11 +130,17 @@ struct ReaderView: View {
     }
 
     @ViewBuilder
-    private func verticalScroller(paging: Bool, spacing: CGFloat) -> some View {
-        if paging {
-            verticalScrollView(paging: true, spacing: spacing).scrollTargetBehavior(.paging)
-        } else {
-            verticalScrollView(paging: false, spacing: spacing)
+    private func verticalReader(paging: Bool, spacing: CGFloat) -> some View {
+        ScrollViewReader { proxy in
+            Group {
+                if paging {
+                    verticalScrollView(paging: true, spacing: spacing).scrollTargetBehavior(.paging)
+                } else {
+                    verticalScrollView(paging: false, spacing: spacing)
+                }
+            }
+            .onAppear { perform(scrollRequest, proxy: proxy) }
+            .onChange(of: scrollRequest) { _, request in perform(request, proxy: proxy) }
         }
     }
 
@@ -121,22 +148,36 @@ struct ReaderView: View {
         ScrollView(.vertical) {
             LazyVStack(spacing: spacing) {
                 ForEach(pages) { page in
-                    Group {
-                        if paging {
-                            PageImageView(page: page)
-                                .containerRelativeFrame([.horizontal, .vertical])
-                        } else {
-                            PageImageView(page: page)
-                                .frame(maxWidth: .infinity)
+                    VerticalReaderPage(page: page, pointWidth: screenWidth, fillScreen: paging)
+                        .id(page.index)
+                        .onGeometryChange(for: CGRect.self, of: { $0.frame(in: .named("readerScroll")) }) { frame in
+                            updateVisible(page.index, frame: frame)
                         }
-                    }
-                    .id(page.index)
                 }
             }
             .scrollTargetLayout()
+            .contentShape(Rectangle())
+            .onTapGesture { toggleControls() }
         }
-        .scrollPosition(id: $scrolledID, anchor: .top)
+        .coordinateSpace(.named("readerScroll"))
         .scrollIndicators(.hidden)
+    }
+
+    private func perform(_ request: ScrollRequest?, proxy: ScrollViewProxy) {
+        guard let request else { return }
+        // Âncora proporcional: aproxima o deslocamento salvo dentro da página.
+        proxy.scrollTo(request.page, anchor: UnitPoint(x: 0.5, y: min(max(request.offset, 0), 1)))
+    }
+
+    /// Página visível = a que cruza o topo da área visível.
+    private func updateVisible(_ index: Int, frame: CGRect) {
+        guard didRestorePosition, frame.height > 0, frame.minY <= 1, frame.maxY > 1 else { return }
+        if current != index { current = index }
+        let offset = Double(min(max(-frame.minY / frame.height, 0), 1))
+        if abs(offset - scrollOffset) > 0.02 {
+            scrollOffset = offset
+            scheduleSave()
+        }
     }
 
     private func errorView(_ message: String) -> some View {
@@ -194,9 +235,19 @@ struct ReaderView: View {
                 set: { new in
                     mode = new
                     model.settings.reader.mode = new
-                    scrolledID = current
+                    scrollRequest = ScrollRequest(page: current, offset: 0)
                 })) {
                 ForEach(ReadingMode.allCases, id: \.self) { Text($0.label).tag($0) }
+            }
+            if mode == .pagedLeftToRight || mode == .pagedRightToLeft {
+                Picker("Escala", selection: Binding(
+                    get: { scale },
+                    set: { new in
+                        scale = new
+                        model.settings.reader.scale = new
+                    })) {
+                    ForEach(PageScale.allCases, id: \.self) { Text($0.label).tag($0) }
+                }
             }
         } label: {
             Image(systemName: "book.pages")
@@ -204,7 +255,7 @@ struct ReaderView: View {
                 .frame(width: 44, height: 44)
                 .fyGlass(in: Circle(), interactive: true)
         }
-        .accessibilityLabel("Modo de leitura")
+        .accessibilityLabel("Modo de leitura e escala")
     }
 
     @ViewBuilder
@@ -221,7 +272,7 @@ struct ReaderView: View {
                             let idx = Int(v.rounded())
                             if idx != current {
                                 current = idx
-                                scrolledID = idx
+                                scrollRequest = ScrollRequest(page: idx, offset: 0)
                             }
                         }),
                     in: 0...Double(pages.count - 1),
@@ -260,7 +311,7 @@ struct ReaderView: View {
 
     private func handleTap(relativeX: Double) {
         let settings = model.settings.reader
-        guard settings.tapZonesEnabled, mode.isPaged, mode != .pagedVertical else {
+        guard settings.tapZonesEnabled, mode.isPaged, mode != .pagedVertical, !isZoomed else {
             toggleControls()
             return
         }
@@ -280,8 +331,17 @@ struct ReaderView: View {
     private func goChapter(_ delta: Int) {
         let target = chapterIndex + delta
         guard launch.chapters.indices.contains(target) else { return }
+        saveProgress()
         closeSession()
+        ImagePipeline.shared.cancelPrefetch()
         chapterIndex = target
+    }
+
+    private func prefetchAhead() {
+        let n = model.settings.reader.preloadPageCount
+        let refs = ReaderNavigation.preloadIndices(current: current, count: n, pageCount: pages.count)
+            .map { pages[$0].image }
+        ImagePipeline.shared.prefetch(refs, targetPixelWidth: ImagePipeline.pixelWidth(forPoints: screenWidth))
     }
 
     private func loadChapter() async {
@@ -290,6 +350,7 @@ struct ReaderView: View {
         errorMessage = nil
         didRestorePosition = false
         sessionStart = Date()
+        isZoomed = false
         defer { isLoading = false }
 
         guard let source = model.registry.source(launch.manga.sourceId) else {
@@ -303,30 +364,45 @@ struct ReaderView: View {
                 errorMessage = "Este capítulo não tem páginas."
                 return
             }
+            await ImagePipeline.shared.preloadAspects(loaded)
             var start = 0
+            var offset = 0.0
             if let saved = try? model.store.progress.progress(chapterId: chapter.id), !saved.isFinished {
                 start = min(saved.pageIndex, loaded.count - 1)
+                offset = saved.scrollOffset
             }
             pages = loaded
             current = start
-            scrolledID = start
+            scrollOffset = offset
+            scrollRequest = ScrollRequest(page: start, offset: offset)
             didRestorePosition = true
             if !model.settings.incognitoMode {
                 try? model.store.history.record(mangaId: launch.manga.id, chapterId: chapter.id)
             }
             saveProgress()
+            prefetchAhead()
         } catch {
             if (error as? FYError) == .cancelled || error is CancellationError { return }
             errorMessage = error.localizedDescription
         }
     }
 
+    /// Salva o deslocamento depois de 1 s sem rolagem (evita gravar a cada quadro).
+    private func scheduleSave() {
+        pendingSave?.cancel()
+        pendingSave = Task {
+            try? await Task.sleep(nanoseconds: 1_000_000_000)
+            if !Task.isCancelled { saveProgress() }
+        }
+    }
+
     private func saveProgress() {
         guard didRestorePosition, !model.settings.incognitoMode, let chapter, !pages.isEmpty else { return }
-        let finished = current >= pages.count - 1
+        let finished = current >= pages.count - 1 && (mode.isPaged || scrollOffset > 0.85 || pages.count == 1)
+        let offset = mode.isPaged && mode != .pagedVertical ? 0 : scrollOffset
         try? model.store.progress.save(ReadingProgress(chapterId: chapter.id, mangaId: launch.manga.id,
                                                        pageIndex: current, pageCount: pages.count,
-                                                       isFinished: finished))
+                                                       scrollOffset: offset, isFinished: finished))
     }
 
     /// Registra o tempo de leitura do capítulo atual no histórico.
@@ -336,5 +412,107 @@ struct ReaderView: View {
         try? model.store.history.record(mangaId: launch.manga.id, chapterId: chapter.id, addingSeconds: seconds)
         sessionStart = Date()
         model.touch()
+    }
+
+    // MARK: - Brilho
+
+    private var screen: UIScreen? { (UIApplication.shared.connectedScenes.first as? UIWindowScene)?.screen }
+
+    private func applyBrightness() {
+        guard model.settings.reader.useCustomBrightness, let screen else { return }
+        originalBrightness = screen.brightness
+        screen.brightness = CGFloat(model.settings.reader.customBrightness)
+    }
+
+    private func restoreBrightness() {
+        if let original = originalBrightness, let screen { screen.brightness = original }
+        originalBrightness = nil
+    }
+}
+
+// MARK: - Páginas
+
+/// Página dos modos paginados: demo (desenhada) ou imagem com zoom.
+struct PagedReaderPage: View {
+    let page: Page
+    let scale: PageScale
+    let pointWidth: CGFloat
+    let onTap: (Double) -> Void
+    let onZoomChange: (Bool) -> Void
+
+    @State private var image: UIImage?
+    @State private var failed: String?
+    @State private var attempt = 0
+
+    var body: some View {
+        GeometryReader { geo in
+            Group {
+                if case .demo(let seed, let label, let ratio) = page.image {
+                    DemoPageView(seed: seed, label: label, aspectRatio: ratio)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .contentShape(Rectangle())
+                        .onTapGesture { location in onTap(geo.size.width > 0 ? location.x / geo.size.width : 0.5) }
+                } else if let image {
+                    ZoomablePageView(image: image, scale: scale, onTap: onTap, onZoomChange: onZoomChange)
+                } else if let failed {
+                    VStack(spacing: 12) {
+                        PageErrorView(index: page.index)
+                        Text(failed).font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.center)
+                        Button("Tentar novamente") { self.failed = nil; attempt += 1 }.fySecondaryButton()
+                    }
+                    .padding()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .contentShape(Rectangle())
+                    .onTapGesture { location in onTap(geo.size.width > 0 ? location.x / geo.size.width : 0.5) }
+                } else {
+                    ProgressView().tint(.white)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .contentShape(Rectangle())
+                        .onTapGesture { location in onTap(geo.size.width > 0 ? location.x / geo.size.width : 0.5) }
+                }
+            }
+        }
+        .task(id: "\(attempt)|\(page.image.hashValue)") {
+            if case .demo = page.image { return }
+            do {
+                image = try await ImagePipeline.shared.image(
+                    for: page.image, targetPixelWidth: ImagePipeline.pixelWidth(forPoints: pointWidth))
+            } catch {
+                if !Task.isCancelled { failed = error.localizedDescription }
+            }
+        }
+        .onDisappear { image = nil }
+    }
+}
+
+/// Página dos modos verticais, sempre na largura da tela.
+struct VerticalReaderPage: View {
+    let page: Page
+    let pointWidth: CGFloat
+    let fillScreen: Bool
+
+    var body: some View {
+        Group {
+            if case .demo(let seed, let label, let ratio) = page.image {
+                DemoPageView(seed: seed, label: label, aspectRatio: ratio)
+            } else {
+                PipelineImage(ref: page.image, targetPointWidth: pointWidth,
+                              placeholderAspect: ImagePipeline.shared.knownAspect(page.image) ?? 1.42,
+                              errorIndex: page.index)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .modifier(FillScreenIf(enabled: fillScreen))
+    }
+}
+
+private struct FillScreenIf: ViewModifier {
+    let enabled: Bool
+    func body(content: Content) -> some View {
+        if enabled {
+            content.containerRelativeFrame([.horizontal, .vertical])
+        } else {
+            content
+        }
     }
 }

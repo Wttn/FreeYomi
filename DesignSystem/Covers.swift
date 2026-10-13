@@ -22,16 +22,40 @@ struct CoverView: View {
     private var content: some View {
         if let cover = manga.coverURL, cover.hasPrefix("freeyomi-demo://") {
             DemoCoverArt(title: manga.title, hue: DemoSource.hue(for: manga.key))
+        } else if let cover = manga.coverURL, let rel = LocalSource.relativePath(fromCoverURL: cover) {
+            CoverImage(ref: .file(relativePath: rel))
         } else if let cover = manga.coverURL, let url = URL(string: cover), url.scheme == "https" {
-            AsyncImage(url: url, transaction: Transaction(animation: .easeOut(duration: 0.2))) { phase in
-                switch phase {
-                case .success(let image): image.resizable().scaledToFill()
-                case .failure: CoverPlaceholder()
-                default: FYColor.placeholder
-                }
-            }
+            CoverImage(ref: .remote(url: cover, headers: [:]))
         } else {
             CoverPlaceholder()
+        }
+    }
+}
+
+/// Capa carregada pelo pipeline (reduzida, com cache em memória e em disco).
+struct CoverImage: View {
+    let ref: ImageRef
+    @State private var image: UIImage?
+    @State private var failed = false
+
+    init(ref: ImageRef) { self.ref = ref }
+
+    var body: some View {
+        ZStack {
+            if let image {
+                Image(uiImage: image).resizable().scaledToFill()
+            } else if failed {
+                CoverPlaceholder()
+            } else {
+                FYColor.placeholder
+            }
+        }
+        .task(id: ref) {
+            do {
+                image = try await ImagePipeline.shared.image(for: ref, targetPixelWidth: ImagePipeline.pixelWidth(forPoints: 220, zoomHeadroom: 1))
+            } catch {
+                failed = true
+            }
         }
     }
 }
@@ -117,40 +141,6 @@ struct DemoPageView: View {
     }
 
     private var panelRows: Int { aspectRatio > 2 ? 7 : 3 }
-}
-
-/// Renderiza qualquer `ImageRef` de página.
-struct PageImageView: View {
-    let page: Page
-    /// Diretório base para `ImageRef.file`.
-    var baseDirectory: URL? = nil
-
-    var body: some View {
-        switch page.image {
-        case .demo(let seed, let label, let ratio):
-            DemoPageView(seed: seed, label: label, aspectRatio: ratio)
-        case .remote(let urlString, _):
-            // Cabeçalhos por fonte e cache em disco chegam com o pipeline de imagens (Fase 2).
-            if let url = URL(string: urlString) {
-                AsyncImage(url: url) { phase in
-                    switch phase {
-                    case .success(let image): image.resizable().scaledToFit()
-                    case .failure: PageErrorView(index: page.index)
-                    default: ProgressView().frame(maxWidth: .infinity, minHeight: 300)
-                    }
-                }
-            } else {
-                PageErrorView(index: page.index)
-            }
-        case .file(let relative):
-            if let base = baseDirectory,
-               let image = UIImage(contentsOfFile: base.appendingPathComponent(relative).path) {
-                Image(uiImage: image).resizable().scaledToFit()
-            } else {
-                PageErrorView(index: page.index)
-            }
-        }
-    }
 }
 
 struct PageErrorView: View {

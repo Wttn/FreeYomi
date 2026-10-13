@@ -52,6 +52,6 @@ let package = Package(
         .testTarget(name: "FYDataTests", dependencies: ["FYData", "FYDomain"]),
         .testTarget(name: "FYSourcesTests", dependencies: ["FYSources", "FYCore", "FYDomain"],
                     resources: [.copy("Fixtures")]),
-        .testTarget(name: "FYServicesTests", dependencies: ["FYServices", "FYData", "FYSources", "FYDomain"]),
+        .testTarget(name: "FYServicesTests", dependencies: ["FYServices", "FYData", "FYSources", "FYDomain", "FYCore"]),
     ]
 )

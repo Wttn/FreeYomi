@@ -29,9 +29,11 @@ Salvaguardas em `FYCore`:
 
 Nenhum. O app não baixa nem executa APK, JAR, JavaScript ou qualquer outro código. Extensões do catálogo são apenas listadas.
 
-## Arquivos (Fase 2)
+## Arquivos importados
 
-A importação de CBZ/ZIP usará `PathSanitizer.safeRelativePath`, que bloqueia `..`, caminhos absolutos e letras de unidade ("zip slip"), além de limites de tamanho por entrada e total.
+- Os arquivos são tratados como não confiáveis: limites de entradas, tamanho e taxa de compressão; CRC-32 verificado; imagens validadas pelo conteúdo.
+- Nenhum nome vindo do arquivo é usado como caminho de destino (as páginas são renumeradas), e nomes com `..`, caminhos absolutos ou letras de unidade são ignorados.
+- As páginas ficam em `Application Support/FreeYomi/LocalFiles` e podem ser apagadas por título ("Excluir arquivos importados"). O espaço ocupado aparece em *Mais › Geral › Armazenamento*.
 
 ## Permissões do iOS
 
@@ -39,7 +41,7 @@ A importação de CBZ/ZIP usará `PathSanitizer.safeRelativePath`, que bloqueia 
 |---|---|---|
 | Rede | Implícita (sem diálogo no iOS) | Catálogo e fontes |
 | Fotos, câmera, microfone, localização, contatos, rastreamento (ATT) | **Não** | — |
-| Arquivos | Fase 2, via seletor do sistema (`UIDocumentPicker`): acesso só ao que o usuário escolher | Importar CBZ/ZIP/EPUB |
+| Arquivos | Seletor do sistema (`fileImporter`) e "Abrir com FreeYomi": acesso temporário (security-scoped) só ao que o usuário escolher, liberado ao fim da cópia. O original nunca é alterado | Importar CBZ/ZIP/EPUB/pastas |
 | Notificações | Futuro, opcional | Avisar capítulos novos |
 
 `ITSAppUsesNonExemptEncryption = false`: o app usa apenas o TLS do sistema.

@@ -16,6 +16,7 @@ struct FreeYomiApp: App {
                 .preferredColorScheme(model.settings.theme.colorScheme)
                 .tint(FYColor.accent)
                 .task { await model.bootstrap() }
+                .onOpenURL { model.handleOpenURL($0) }
         }
     }
 }

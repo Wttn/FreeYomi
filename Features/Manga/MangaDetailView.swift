@@ -17,6 +17,8 @@ struct MangaDetailView: View {
     @State private var reader: ReaderLaunch?
     @State private var newestFirst = true
     @State private var expandedSummary = false
+    @State private var confirmDeleteFiles = false
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         Group {
@@ -51,6 +53,15 @@ struct MangaDetailView: View {
         .navigationTitle(manga?.title ?? "")
         .navigationBarTitleDisplayMode(.inline)
         .task(id: model.dataVersion) { load() }
+        .confirmationDialog("Excluir os arquivos importados?", isPresented: $confirmDeleteFiles,
+                            titleVisibility: .visible) {
+            Button("Excluir arquivos e progresso", role: .destructive) {
+                if let manga { model.deleteLocalFiles(of: manga) }
+                dismiss()
+            }
+        } message: {
+            Text("As páginas são apagadas deste aparelho. O arquivo original (no app Arquivos) não é alterado.")
+        }
         .fullScreenCover(item: $reader) { launch in
             ReaderView(launch: launch)
         }
@@ -119,6 +130,13 @@ struct MangaDetailView: View {
                 }
             }
             .controlSize(.large)
+
+            if manga.sourceId == .local {
+                Button(role: .destructive) { confirmDeleteFiles = true } label: {
+                    Label("Excluir arquivos importados", systemImage: "trash")
+                }
+                .font(.subheadline)
+            }
 
             if let summary = manga.summary, !summary.isEmpty {
                 Text(summary)

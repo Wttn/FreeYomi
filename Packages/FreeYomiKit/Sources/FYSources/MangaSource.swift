@@ -133,8 +133,11 @@ public final class SourceRegistry: @unchecked Sendable {
         for s in sources { self.sources[s.id] = s }
     }
 
-    public static func makeDefault() -> SourceRegistry {
-        SourceRegistry(sources: [DemoSource()])
+    /// Fontes nativas disponíveis. `localStore` habilita "Arquivos locais".
+    public static func makeDefault(localStore: LocalLibraryStore? = nil) -> SourceRegistry {
+        var list: [any MangaSource] = [DemoSource()]
+        if let localStore { list.append(LocalSource(store: localStore)) }
+        return SourceRegistry(sources: list)
     }
 
     public func register(_ s: any MangaSource) {
@@ -156,7 +159,8 @@ public final class SourceRegistry: @unchecked Sendable {
     public func listings() -> [SourceListing] {
         var result = all.map {
             SourceListing(id: $0.id, name: $0.name, language: $0.language, kind: $0.kind, status: .implemented,
-                          note: $0.kind == .demo ? "Dados fictícios gerados localmente" : "")
+                          note: $0.kind == .demo ? "Dados fictícios gerados localmente"
+                              : ($0.kind == .localFiles ? "CBZ, ZIP, EPUB de imagens e pastas importados pelo app Arquivos" : ""))
         }
         let planned: [SourceListing] = [
             SourceListing(id: .local, name: "Arquivos locais (CBZ/ZIP/pastas)", language: "all", kind: .localFiles,

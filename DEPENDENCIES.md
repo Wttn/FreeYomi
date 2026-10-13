@@ -8,7 +8,7 @@ Atualizado na Fase 1. **Toda nova dependência precisa ser listada aqui, com a l
 |---|---|---|---|
 | SQLite (`libsqlite3`) | Biblioteca do sistema iOS (Linux: `libsqlite3-dev`) | Domínio público | Banco local |
 | zlib (`libz`) | Biblioteca do sistema iOS (Linux: `zlib1g-dev`) | Licença zlib | Descompressão gzip do índice de extensões |
-| SwiftUI, Foundation, Observation, UIKit | SDK da Apple | Termos do SDK da Apple (frameworks do sistema, não redistribuídos) | Interface e sistema |
+| SwiftUI, Foundation, Observation, UIKit, ImageIO, UniformTypeIdentifiers | SDK da Apple | Termos do SDK da Apple (frameworks do sistema, não redistribuídos) | Interface e sistema |
 
 Nenhum pacote Swift, CocoaPod ou binário de terceiros é incluído.
 

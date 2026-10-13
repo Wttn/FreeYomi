@@ -10,8 +10,8 @@ options:
 settings:
   base:
     SWIFT_VERSION: "5.0"
-    MARKETING_VERSION: "0.1.0"
-    CURRENT_PROJECT_VERSION: "1"
+    MARKETING_VERSION: "0.2.0"
+    CURRENT_PROJECT_VERSION: "2"
     DEVELOPMENT_TEAM: ""
     CODE_SIGN_STYLE: Automatic
     ENABLE_USER_SCRIPT_SANDBOXING: YES
@@ -51,6 +51,28 @@ targets:
         UILaunchScreen: {}
         UIApplicationSupportsIndirectInputEvents: true
         ITSAppUsesNonExemptEncryption: false
+        LSSupportsOpeningDocumentsInPlace: false
+        CFBundleDocumentTypes:
+          - CFBundleTypeName: Quadrinho (CBZ)
+            LSHandlerRank: Owner
+            LSItemContentTypes:
+              - io.github.freeyomi.cbz
+          - CFBundleTypeName: Arquivo ZIP ou EPUB
+            LSHandlerRank: Alternate
+            LSItemContentTypes:
+              - public.zip-archive
+              - org.idpf.epub-container
+        UTImportedTypeDeclarations:
+          - UTTypeIdentifier: io.github.freeyomi.cbz
+            UTTypeDescription: Comic Book Archive (CBZ)
+            UTTypeConformsTo:
+              - public.zip-archive
+              - public.data
+            UTTypeTagSpecification:
+              public.filename-extension:
+                - cbz
+              public.mime-type:
+                - application/vnd.comicbook+zip
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
           - UIInterfaceOrientationLandscapeLeft

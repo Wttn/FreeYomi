@@ -101,9 +101,34 @@ struct PlannedFeatureView: View {
 struct GeneralSettingsView: View {
     @Environment(AppModel.self) private var model
     @State private var confirmRemove = false
+    @State private var localBytes = 0
+    @State private var cacheBytes = 0
+
+    private func refreshUsage() {
+        localBytes = model.localStore.diskUsage()
+        cacheBytes = ImagePipeline.shared.disk.totalBytes
+    }
+
+    private func format(_ bytes: Int) -> String {
+        ByteCountFormatter.string(fromByteCount: Int64(bytes), countStyle: .file)
+    }
 
     var body: some View {
         Form {
+            Section {
+                LabeledContent("Arquivos importados", value: format(localBytes))
+                LabeledContent("Cache de imagens", value: format(cacheBytes))
+                Button("Limpar cache de imagens") {
+                    ImagePipeline.shared.disk.removeAll()
+                    ImagePipeline.shared.clearMemory()
+                    refreshUsage()
+                }
+            } header: {
+                FYSectionHeader("Armazenamento")
+            } footer: {
+                Text("O cache guarda imagens baixadas de fontes online e é limitado a 300 MB. "
+                     + "Arquivos importados só são removidos pelo botão \"Excluir arquivos importados\" de cada título.")
+            }
             Section {
                 Button("Restaurar títulos de demonstração") { Task { await model.restoreDemoData() } }
                 Button("Remover títulos de demonstração", role: .destructive) { confirmRemove = true }
@@ -114,6 +139,7 @@ struct GeneralSettingsView: View {
             }
         }
         .navigationTitle("Geral")
+        .task { refreshUsage() }
         .navigationBarTitleDisplayMode(.inline)
         .confirmationDialog("Remover os títulos de demonstração?", isPresented: $confirmRemove, titleVisibility: .visible) {
             Button("Remover", role: .destructive) { model.removeDemoData() }
@@ -275,7 +301,8 @@ struct ReaderSettingsView: View {
             } header: {
                 FYSectionHeader("Leitura")
             } footer: {
-                Text("Nesta versão as páginas são exibidas inteiras. Ajuste à largura/altura e zoom por gesto chegam na Fase 2.")
+                Text("Nos modos paginados: pinça ou toque duplo para zoom; a escala define o enquadramento inicial. "
+                     + "Nos modos verticais as páginas ocupam a largura da tela.")
             }
             Section {
                 Toggle("Zonas de toque laterais", isOn: $model.settings.reader.tapZonesEnabled)
@@ -284,6 +311,23 @@ struct ReaderSettingsView: View {
                 Toggle("Mostrar número da página", isOn: $model.settings.reader.showPageNumber)
                 Toggle("Manter a tela ativa", isOn: $model.settings.reader.keepScreenOn)
             } header: { FYSectionHeader("Controles") }
+            Section {
+                Toggle("Brilho próprio no leitor", isOn: $model.settings.reader.useCustomBrightness)
+                if model.settings.reader.useCustomBrightness {
+                    HStack {
+                        Image(systemName: "sun.min")
+                        Slider(value: $model.settings.reader.customBrightness, in: 0.05...1)
+                            .accessibilityLabel("Brilho")
+                        Image(systemName: "sun.max")
+                    }
+                }
+                Stepper("Pré-carregar \(model.settings.reader.preloadPageCount) páginas",
+                        value: $model.settings.reader.preloadPageCount, in: 0...10)
+            } header: {
+                FYSectionHeader("Tela e desempenho")
+            } footer: {
+                Text("O brilho original é restaurado ao sair do leitor.")
+            }
         }
         .navigationTitle("Leitor")
         .navigationBarTitleDisplayMode(.inline)
