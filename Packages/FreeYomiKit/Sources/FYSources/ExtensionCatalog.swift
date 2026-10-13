@@ -251,6 +251,7 @@ public struct CatalogSnapshot: Sendable {
 }
 
 /// Baixa, valida, decodifica e guarda em cache o índice de extensões.
+/// Cada repositório tem o próprio cache (chave = URL informada pelo usuário).
 public final class ExtensionCatalogClient: @unchecked Sendable {
     private let http: HTTPClient
     private let cacheDirectory: URL
@@ -261,19 +262,22 @@ public final class ExtensionCatalogClient: @unchecked Sendable {
         self.cacheDirectory = cacheDirectory
     }
 
-    private var cacheFile: URL { cacheDirectory.appendingPathComponent("catalog-index.pb") }
-    private var metaFile: URL { cacheDirectory.appendingPathComponent("catalog-meta.json") }
+    private func stem(_ key: String) -> String {
+        String(DiskCache.fileName(for: RepositoryURL.canonicalKey(key)).dropLast(4)) // sem ".bin"
+    }
+    private func cacheFile(_ key: String) -> URL { cacheDirectory.appendingPathComponent("catalog-\(stem(key)).pb") }
+    private func metaFile(_ key: String) -> URL { cacheDirectory.appendingPathComponent("catalog-\(stem(key)).json") }
 
     struct Meta: Codable { let sourceURL: String; let fetchedAt: Date }
 
-    /// Busca o índice na rede. Se falhar, recorre ao cache (se existir).
+    /// Busca o índice na rede. Se falhar, recorre ao cache daquele repositório (se existir).
     public func refresh(from urlString: String) async throws -> CatalogSnapshot {
         do {
-            return try await fetch(urlString, redirectsLeft: 2)
+            return try await fetch(urlString, cacheKey: urlString, redirectsLeft: 2)
         } catch FYError.cancelled {
             throw FYError.cancelled
         } catch {
-            if let cached = try? loadCache() {
+            if let cached = try? loadCache(for: urlString) {
                 return CatalogSnapshot(index: cached.index, sourceURL: cached.sourceURL, fetchedAt: cached.fetchedAt,
                                        isFromCache: true, networkError: error.localizedDescription)
             }
@@ -281,8 +285,36 @@ public final class ExtensionCatalogClient: @unchecked Sendable {
         }
     }
 
-    private func fetch(_ urlString: String, redirectsLeft: Int) async throws -> CatalogSnapshot {
-        guard let url = URL(string: urlString) else { throw FYError.invalidData("URL do catálogo inválida") }
+    /// Atualiza vários repositórios em paralelo; a ordem da entrada é preservada
+    /// e a falha de um não impede os demais.
+    public func refreshAll(_ urls: [String]) async -> [RepositoryCatalog] {
+        await withTaskGroup(of: (Int, RepositoryCatalog).self) { group in
+            for (i, url) in urls.enumerated() {
+                group.addTask {
+                    do {
+                        let snap = try await self.refresh(from: url)
+                        return (i, RepositoryCatalog(indexURL: url, snapshot: snap, error: nil))
+                    } catch {
+                        return (i, RepositoryCatalog(indexURL: url, snapshot: nil, error: error.localizedDescription))
+                    }
+                }
+            }
+            var out = [(Int, RepositoryCatalog)]()
+            for await r in group { out.append(r) }
+            return out.sorted { $0.0 < $1.0 }.map(\.1)
+        }
+    }
+
+    /// Últimos índices salvos de cada repositório, sem rede.
+    public func cachedAll(_ urls: [String]) -> [RepositoryCatalog] {
+        urls.map { url in
+            if let s = try? loadCache(for: url) { return RepositoryCatalog(indexURL: url, snapshot: s, error: nil) }
+            return RepositoryCatalog(indexURL: url, snapshot: nil, error: nil)
+        }
+    }
+
+    private func fetch(_ urlString: String, cacheKey: String, redirectsLeft: Int) async throws -> CatalogSnapshot {
+        guard let url = URL(string: urlString) else { throw FYError.invalidData("URL do repositório inválida") }
         try URLPolicy.validateRemote(url)
         let response = try await http.get(url, headers: [:])
         guard (200..<300).contains(response.statusCode) else {
@@ -296,28 +328,47 @@ public final class ExtensionCatalogClient: @unchecked Sendable {
             guard let next, redirectsLeft > 0 else {
                 throw FYError.unsupported("repo.json sem o campo index_v2")
             }
-            return try await fetch(next, redirectsLeft: redirectsLeft - 1)
+            return try await fetch(next, cacheKey: cacheKey, redirectsLeft: redirectsLeft - 1)
         case .protobuf:
             let index = try ExtensionIndexDecoder.decodeStore(data)
             let now = Date()
-            try? saveCache(raw: data, meta: Meta(sourceURL: urlString, fetchedAt: now))
+            try? saveCache(raw: data, meta: Meta(sourceURL: urlString, fetchedAt: now), key: cacheKey)
             return CatalogSnapshot(index: index, sourceURL: urlString, fetchedAt: now, isFromCache: false,
                                    networkError: nil)
         }
     }
 
-    /// Lê o último índice salvo, sem rede.
-    public func loadCache() throws -> CatalogSnapshot {
-        let raw = try Data(contentsOf: cacheFile)
-        let meta = try JSONDecoder().decode(Meta.self, from: Data(contentsOf: metaFile))
+    /// Lê o último índice salvo de um repositório, sem rede.
+    public func loadCache(for urlString: String) throws -> CatalogSnapshot {
+        let raw = try Data(contentsOf: cacheFile(urlString))
+        let meta = try JSONDecoder().decode(Meta.self, from: Data(contentsOf: metaFile(urlString)))
         let index = try ExtensionIndexDecoder.decodeStore(raw)
         return CatalogSnapshot(index: index, sourceURL: meta.sourceURL, fetchedAt: meta.fetchedAt, isFromCache: true,
                                networkError: nil)
     }
 
-    private func saveCache(raw: Data, meta: Meta) throws {
+    /// Apaga o cache de um repositório removido.
+    public func removeCache(for urlString: String) {
+        try? fm.removeItem(at: cacheFile(urlString))
+        try? fm.removeItem(at: metaFile(urlString))
+    }
+
+    private func saveCache(raw: Data, meta: Meta, key: String) throws {
         try fm.createDirectory(at: cacheDirectory, withIntermediateDirectories: true)
-        try raw.write(to: cacheFile, options: .atomic)
-        try JSONEncoder().encode(meta).write(to: metaFile, options: .atomic)
+        try raw.write(to: cacheFile(key), options: .atomic)
+        try JSONEncoder().encode(meta).write(to: metaFile(key), options: .atomic)
+    }
+}
+
+/// Resultado do catálogo de um repositório (ou o erro, isolado).
+public struct RepositoryCatalog: Sendable, Identifiable {
+    public let indexURL: String
+    public let snapshot: CatalogSnapshot?
+    public let error: String?
+    public var id: String { indexURL }
+
+    public var repository: ExtensionRepository {
+        if let s = snapshot { return ExtensionRepository(indexURL: indexURL, index: s.index) }
+        return ExtensionRepository(indexURL: indexURL, name: RepositoryURL.displayName(indexURL))
     }
 }

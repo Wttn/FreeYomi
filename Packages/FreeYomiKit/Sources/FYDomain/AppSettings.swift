@@ -114,7 +114,18 @@ public struct AppSettings: Codable, Sendable, Hashable {
     public var showNSFWExtensions: Bool = false
     /// Modo anônimo: não registra histórico nem progresso.
     public var incognitoMode: Bool = false
+    /// Fonte nativa do MangaDex.
+    public var mangaDexEnabled: Bool = true
+    public var mangaDexLanguage: String = "pt-br"
+    public var mangaDexDataSaver: Bool = false
+    /// Servidor de extensões (Suwayomi-Server). A senha fica no Keychain, nunca aqui.
+    public var extensionServerURL: String? = nil
+    public var extensionServerUsername: String? = nil
+    public var extensionServerAllowHTTP: Bool = true
+    /// Repositório único das versões 0.1–0.3 (mantido só para migração).
     public var catalogURL: String = "https://raw.githubusercontent.com/keiyoushi/extensions/repo/index.pb"
+    /// Repositórios de extensões, na ordem exibida (ver tela "Repositórios de extensões").
+    public var extensionRepositories: [String] = ["https://raw.githubusercontent.com/keiyoushi/extensions/repo/index.pb"]
 
     public init() {}
 
@@ -141,7 +152,15 @@ public struct AppSettings: Codable, Sendable, Hashable {
         demoDataSeeded = try c.decodeIfPresent(Bool.self, forKey: .demoDataSeeded) ?? d.demoDataSeeded
         showNSFWExtensions = try c.decodeIfPresent(Bool.self, forKey: .showNSFWExtensions) ?? d.showNSFWExtensions
         incognitoMode = try c.decodeIfPresent(Bool.self, forKey: .incognitoMode) ?? d.incognitoMode
+        mangaDexEnabled = try c.decodeIfPresent(Bool.self, forKey: .mangaDexEnabled) ?? d.mangaDexEnabled
+        mangaDexLanguage = try c.decodeIfPresent(String.self, forKey: .mangaDexLanguage) ?? d.mangaDexLanguage
+        mangaDexDataSaver = try c.decodeIfPresent(Bool.self, forKey: .mangaDexDataSaver) ?? d.mangaDexDataSaver
+        extensionServerURL = try c.decodeIfPresent(String.self, forKey: .extensionServerURL)
+        extensionServerUsername = try c.decodeIfPresent(String.self, forKey: .extensionServerUsername)
+        extensionServerAllowHTTP = try c.decodeIfPresent(Bool.self, forKey: .extensionServerAllowHTTP) ?? d.extensionServerAllowHTTP
         catalogURL = try c.decodeIfPresent(String.self, forKey: .catalogURL) ?? d.catalogURL
+        // Migração: quem tinha só `catalogURL` passa a ter uma lista com ele.
+        extensionRepositories = (try? c.decodeIfPresent([String].self, forKey: .extensionRepositories)) ?? [catalogURL]
         setItemsPerRow(libraryItemsPerRow)
     }
 }

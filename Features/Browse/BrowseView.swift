@@ -30,12 +30,19 @@ struct BrowseView: View {
 
                 switch segment {
                 case .sources: SourcesListView()
-                case .extensions: ExtensionCatalogView()
+                case .extensions: ExtensionsTabView()
                 case .migrate: MigrateView()
                 }
             }
             .navigationTitle("Explorar")
             .toolbarTitleDisplayMode(.inlineLarge)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    NavigationLink {
+                        GlobalSearchView()
+                    } label: { Label("Busca global", systemImage: "magnifyingglass") }
+                }
+            }
             .navigationDestination(for: SourceID.self) { SourceCatalogView(sourceId: $0) }
             .navigationDestination(for: Int64.self) { MangaDetailView(mangaId: $0) }
         }
@@ -56,7 +63,7 @@ struct SourcesListView: View {
             .compactMap { l in stored[l.id]?.lastUsedAt.map { (l, $0) } }
             .max { $0.1 < $1.1 }?.0
         let pinned = implemented.filter { stored[$0.id]?.isPinned == true }
-        let byLanguage = Dictionary(grouping: implemented, by: \.language)
+        let byLanguage = Dictionary(grouping: implemented, by: { $0.language.lowercased() })
 
         List {
             if let lastUsed {
@@ -288,12 +295,42 @@ struct OpenedManga: Hashable, Identifiable {
 // MARK: - Migrar
 
 struct MigrateView: View {
+    @Environment(AppModel.self) private var model
+    @State private var items: [LibraryTitle] = []
+    @State private var migrating: Manga?
+
     var body: some View {
-        EmptyStateView(
-            title: "Migração de fontes",
-            systemImage: "arrow.left.arrow.right",
-            message: "Permitirá mover títulos entre fontes preservando o progresso. "
-                + "Será implementada quando houver mais de uma fonte real compatível (Fase 3).")
+        let groups = Dictionary(grouping: items, by: { $0.manga.sourceId })
+        List {
+            Section {
+                Text("Mova um título para outra fonte mantendo categorias, capítulos lidos e marcadores.")
+                    .font(.callout).foregroundStyle(.secondary)
+            }
+            ForEach(groups.keys.sorted { $0.rawValue < $1.rawValue }, id: \.self) { sid in
+                Section(model.registry.source(sid)?.name ?? "\(sid.rawValue) (não instalada)") {
+                    ForEach(groups[sid] ?? []) { item in
+                        Button {
+                            migrating = item.manga
+                        } label: {
+                            HStack(spacing: 12) {
+                                CoverView(manga: item.manga, cornerRadius: 6).frame(width: 36, height: 50)
+                                Text(item.manga.title).foregroundStyle(.primary)
+                                Spacer()
+                                Image(systemName: "arrow.left.arrow.right").foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        .overlay {
+            if items.isEmpty {
+                EmptyStateView(title: "Biblioteca vazia", systemImage: "arrow.left.arrow.right",
+                               message: "Adicione títulos à biblioteca para poder migrá-los.")
+            }
+        }
+        .task(id: model.dataVersion) { items = (try? model.store.library.items()) ?? [] }
+        .sheet(item: $migrating) { MigrationSheet(manga: $0) }
     }
 }
 

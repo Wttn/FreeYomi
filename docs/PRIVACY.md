@@ -15,8 +15,9 @@ Não existem conta, servidor próprio, telemetria, SDK de análise ou publicidad
 
 O app só faz requisições quando:
 
-1. o usuário abre **Explorar › Extensões** (download do índice de metadados por HTTPS);
-2. o usuário navega por uma fonte online (nenhuma na Fase 1, além da demo, que é local).
+1. o usuário abre **Explorar › Extensões** (índice de metadados por HTTPS);
+2. o usuário navega ou lê numa fonte online: **MangaDex** (api.mangadex.org, uploads.mangadex.org, nós MangaDex@Home e o relatório obrigatório em api.mangadex.network, que envia só a URL da imagem, o sucesso, os bytes e a duração);
+3. o usuário configura um **servidor de extensões** (o Suwayomi dele, na rede local ou por VPN).
 
 Salvaguardas em `FYCore`:
 
@@ -24,6 +25,10 @@ Salvaguardas em `FYCore`:
 - limite de tamanho das respostas (32 MB) e do conteúdo descomprimido (64 MB);
 - `Redactor`: remove usuário, senha e parâmetros como `token`/`api_key` de URLs antes de qualquer mensagem de erro;
 - sessão `URLSession` efêmera (sem cookies persistentes nem cache HTTP).
+
+## Credenciais
+
+A senha do servidor de extensões fica no Keychain (só neste aparelho, sem iCloud) e nunca é gravada no banco, em logs ou em backups. O usuário fica nas preferências. As URLs passam pelo `Redactor` antes de qualquer mensagem de erro.
 
 ## Código de terceiros
 
@@ -40,6 +45,7 @@ Nenhum. O app não baixa nem executa APK, JAR, JavaScript ou qualquer outro cód
 | Permissão | Solicitada? | Motivo |
 |---|---|---|
 | Rede | Implícita (sem diálogo no iOS) | Catálogo e fontes |
+| Rede local | Sim, ao conectar um servidor de extensões | Falar com o Suwayomi-Server do usuário. HTTP só para esse host e porta |
 | Fotos, câmera, microfone, localização, contatos, rastreamento (ATT) | **Não** | — |
 | Arquivos | Seletor do sistema (`fileImporter`) e "Abrir com FreeYomi": acesso temporário (security-scoped) só ao que o usuário escolher, liberado ao fim da cópia. O original nunca é alterado | Importar CBZ/ZIP/EPUB/pastas |
 | Notificações | Futuro, opcional | Avisar capítulos novos |

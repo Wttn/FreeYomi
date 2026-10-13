@@ -149,3 +149,44 @@ Alvo mínimo: **iOS 17**, necessário para `@Observable`, `ContentUnavailableVie
 | Modos verticais | Leitor em UIKit (`VerticalPagesView`: `UIScrollView` com páginas posicionadas pela proporção conhecida, carregamento de ±2 páginas ao redor da visível e descarte das demais, zoom de 1× a 3× do conjunto) | A primeira versão com `LazyVStack` + rastreamento de geometria travava a thread principal no fim do capítulo, como mostraram os testes de interface. Em UIKit o layout é calculado uma vez, sem ciclos |
 | Posição na rolagem vertical | Página que cruza o topo (busca binária nas molduras) + deslocamento 0–1 dentro dela, salvos 1 s após parar de rolar, ao trocar de capítulo, ao sair e ao ir para segundo plano; restauração **exata** por `contentOffset` | Recuperação após encerramento inesperado |
 | Layout estável no vertical | Proporções das páginas locais lidas só do cabeçalho (sem decodificar) antes de exibir | Evita "saltos" ao restaurar a posição |
+
+---
+
+## 12. Decisões da Fase 3 (extensões e leitura online)
+
+**Pedido:** instalar extensões e buscar/ler online "como no Tachimanga".
+
+**Restrição:** as extensões do catálogo são código Kotlin/JVM. Executá-las no iPhone exigiria embutir uma JVM e baixar código executável, o que contraria a diretriz 2.5.2 da App Store e a regra do projeto de não executar código de terceiros com acesso ao app (§4).
+
+**Decisão — dois caminhos complementares:**
+
+| Caminho | Como funciona | Vantagens | Limites |
+|---|---|---|---|
+| **Servidor de extensões** (Suwayomi-Server, MPL-2.0, *não* embutido no app) | O usuário roda o servidor no PC/NAS; o FreeYomi usa a API REST v1 (e uma mutação GraphQL) para instalar extensões, navegar, buscar e ler | Catálogo completo (todas as extensões, inclusive pt-BR); nenhum código de terceiros no iPhone | Exige um computador ligado; fora de casa, VPN ou HTTPS |
+| **Fontes nativas** (Swift) | Adaptadores escritos e revisados no repositório | Funcionam sem servidor | Uma por vez; só fontes com API pública e termos que permitam apps de terceiros |
+
+- **MangaDex** foi a primeira fonte nativa. Os termos (api.mangadex.org/docs) permitem apps de terceiros sem anúncios nem serviços pagos, com crédito ao MangaDex e aos grupos. Implementado: User-Agent real, 4 req/s, 40/min no `at-home`, imagens via `at-home` (sem cabeçalho de autenticação) e relatório para nós MangaDex@Home. Capítulos só externos (ex.: MANGA Plus) são omitidos, e o conteúdo adulto segue a preferência 18+.
+- **Segurança de rede:** a nova `RequestPolicy.personalServer` aceita HTTP apenas para o host e a porta configurados, inclusive após redirecionamentos. As demais requisições continuam só em HTTPS. ATS: `NSAllowsLocalNetworking` (sem `NSAllowsArbitraryLoads`). A senha do servidor fica no Keychain (`AfterFirstUnlockThisDeviceOnly`).
+- **Chave dos capítulos do servidor:** a URL do capítulo na fonte (estável), não o índice do Suwayomi, que muda quando saem capítulos novos.
+- **Migração:** copia categorias, capítulos lidos (até o maior número lido) e marcadores (por número); preserva o original e o histórico dele.
+- **Busca global:** até 4 fontes simultâneas; a falha de uma fonte não afeta as outras.
+- **Komga:** adiado para o próximo incremento. O pedido priorizou extensões e leitura online.
+
+## 13. Repositórios de extensões como no Tachimanga (0.3.1)
+
+**Pedido:** uma tela equivalente à "Repositórios de extensões" do Tachimanga, onde se adiciona um repositório (ex.: Keiyoushi, FelipeGFA) e se instalam as extensões dele.
+
+**O que foi feito:**
+
+- **Vários repositórios** (`AppSettings.extensionRepositories`; o antigo `catalogURL` é migrado para a lista). Cada repositório tem cartão com nome, selo (ex.: KEI, FGFA), endereço, **Copiar**, **Discord/Site** (dados do próprio índice) e menu ⋯ (copiar, abrir site, Discord, remover). Há reordenação, "Adicionar repositório" e "Encontrar repositório" (sugestões que só preenchem o campo).
+- **Adicionar = verificar antes.** O índice é baixado e decodificado antes da confirmação. A tela mostra nome, selo, total de extensões, quantas têm fontes pt-BR ou 18+ e a impressão digital da chave de assinatura. Só HTTPS; `index.min.json` (formato antigo) é recusado com explicação.
+- **Sincronização com o servidor.** Com o Suwayomi-Server conectado, o app usa a API GraphQL de repositórios do próprio servidor, conferida no código (`graphql/queries/ExtensionStoreQuery.kt`, `graphql/mutations/ExtensionStoreMutation.kt`, commit `635751a`): `extensionStores`, `addExtensionStore`, `removeExtensionStore` e `extensions { pkgName storeIndexUrl }` (para o selo do repositório em cada extensão). Os repositórios do app que faltam no servidor são enviados a ele, e os que só existem no servidor entram na lista do app. Endereços equivalentes do GitHub (`github.com/…/raw/…` e `raw.githubusercontent.com/…`) contam como o mesmo repositório.
+- **Links "Adicionar ao Mihon".** O app aceita `tachiyomi://add-repo?url=…` e `mihon://extension-store?url=…`, os formatos tratados pelo Mihon em `MainActivity.isAddExtensionStoreIntent`, além de `freeyomi://add-repo?url=…`. O link só abre a tela de confirmação; nada é adicionado sozinho. Observação: se outro app instalado também registrar `tachiyomi://`, o iOS escolhe um deles.
+- **Instalação:** continua no servidor (Explorar › Extensões › Instalar/Atualizar/Remover). As extensões de todos os repositórios aparecem juntas, com o selo de origem.
+
+**Por que o iPhone não executa as extensões, como o Tachimanga parece fazer.** O Tachimanga tem código fechado. Pelo comportamento, ele embute um ambiente que executa as extensões Kotlin/JVM dentro do app; não há como confirmar como, nem reaproveitar nada (o repositório público dele não tem licença). Fazer o mesmo no FreeYomi exigiria:
+
+1. baixar e executar código de terceiros dentro do app, o que contraria duas regras do briefing ("não executar código arbitrário proveniente de fontes externas" e "não execute extensões externas com acesso irrestrito ao aplicativo") e a diretriz 2.5.2 da App Store (o app só poderia ser distribuído por sideload/AltStore);
+2. um runtime JVM/Dalvik para iOS sem JIT (o iOS proíbe JIT para apps comuns), além de reimplementar as APIs Android usadas pelas extensões (OkHttp, Jsoup, WebView, SharedPreferences, etc.).
+
+Isso só será considerado com decisão explícita do mantenedor, abrindo mão dessas regras e da App Store. Mesmo assim, entraria como modo opcional e isolado (as extensões sem acesso à biblioteca nem ao Keychain), e só depois de um protótipo provar que é viável. Até lá, o caminho suportado é o servidor de extensões.

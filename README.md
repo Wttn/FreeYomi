@@ -4,7 +4,7 @@ Leitor de mangás, manhwas, manhuas, webtoons e quadrinhos para **iPhone e iPad*
 
 Inspirado no funcionamento do [Mihon](https://github.com/mihonapp/mihon)/Tachiyomi e na experiência do Tachimanga, com identidade visual própria e interface nativa em SwiftUI com **Liquid Glass** (iOS 26+). Nenhum código, marca ou recurso visual desses projetos foi copiado.
 
-> **Status: Fase 2 (biblioteca local e leitor) — pré-alfa.** Relatórios: [Fase 1](docs/PHASE1_REPORT.md) · [Fase 2](docs/PHASE2_REPORT.md).
+> **Status: Fase 3 (extensões e leitura online) — pré-alfa.** Relatórios: [Fase 1](docs/PHASE1_REPORT.md) · [Fase 2](docs/PHASE2_REPORT.md) · [Fase 3](docs/PHASE3_REPORT.md).
 
 ## Princípios
 
@@ -22,6 +22,7 @@ Inspirado no funcionamento do [Mihon](https://github.com/mihonapp/mihon)/Tachiyo
 - Histórico com tempo de leitura, retomada, exclusão (com confirmação) e modo anônimo.
 - Catálogo de extensões Keiyoushi: download por HTTPS, gzip + protobuf decodificados, cache offline e classificação de compatibilidade.
 - Fonte de demonstração 100% local e fictícia.
+- **Fase 3:** instalar, atualizar e remover extensões e ler online por meio de um [servidor de extensões](docs/EXTENSION_SERVER.md) (Suwayomi-Server, no seu PC); fonte nativa **MangaDex** sem servidor; busca global; migração entre fontes.
 - **Fase 2:** importação de CBZ, ZIP, EPUB de imagens e pastas (seletor de arquivos ou "Abrir com FreeYomi"), com extração segura e metadados de `ComicInfo.xml`; fonte "Arquivos locais" offline; zoom por pinça/toque duplo; escalas página inteira/largura/altura/original; pipeline de imagens com redução de resolução, cache e pré-carga; posição de rolagem salva dentro da página; brilho próprio no leitor.
 - Persistência SQLite com migrações, chaves compostas e recuperação de arquivo corrompido.
 

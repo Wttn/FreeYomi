@@ -134,8 +134,10 @@ public final class SourceRegistry: @unchecked Sendable {
     }
 
     /// Fontes nativas disponíveis. `localStore` habilita "Arquivos locais".
-    public static func makeDefault(localStore: LocalLibraryStore? = nil) -> SourceRegistry {
+    public static func makeDefault(localStore: LocalLibraryStore? = nil,
+                                   mangaDex: MangaDexSource? = nil) -> SourceRegistry {
         var list: [any MangaSource] = [DemoSource()]
+        if let mangaDex { list.append(mangaDex) }
         if let localStore { list.append(LocalSource(store: localStore)) }
         return SourceRegistry(sources: list)
     }
@@ -143,6 +145,18 @@ public final class SourceRegistry: @unchecked Sendable {
     public func register(_ s: any MangaSource) {
         lock.lock(); defer { lock.unlock() }
         sources[s.id] = s
+    }
+
+    /// Substitui todas as fontes cujo ID começa com `prefix` (ex.: as do servidor de extensões).
+    public func replaceSources(withPrefix prefix: String, with new: [any MangaSource]) {
+        lock.lock(); defer { lock.unlock() }
+        for key in sources.keys where key.rawValue.hasPrefix(prefix) { sources[key] = nil }
+        for s in new { sources[s.id] = s }
+    }
+
+    public func unregister(_ id: SourceID) {
+        lock.lock(); defer { lock.unlock() }
+        sources[id] = nil
     }
 
     public func source(_ id: SourceID) -> (any MangaSource)? {
@@ -157,18 +171,27 @@ public final class SourceRegistry: @unchecked Sendable {
 
     /// Fontes implementadas + planejadas, para a tela "Explorar › Fontes".
     public func listings() -> [SourceListing] {
-        var result = all.map {
-            SourceListing(id: $0.id, name: $0.name, language: $0.language, kind: $0.kind, status: .implemented,
-                          note: $0.kind == .demo ? "Dados fictícios gerados localmente"
-                              : ($0.kind == .localFiles ? "CBZ, ZIP, EPUB de imagens e pastas importados pelo app Arquivos" : ""))
+        var result = all.map { s -> SourceListing in
+            let note: String
+            switch s.kind {
+            case .demo: note = "Dados fictícios gerados localmente"
+            case .localFiles: note = "CBZ, ZIP, EPUB de imagens e pastas importados pelo app Arquivos"
+            case .personalServer: note = "Extensão executada no seu servidor Suwayomi"
+            case .online: note = s.id == "mangadex"
+                ? "API pública do MangaDex. Créditos ao MangaDex e aos grupos de tradução de cada capítulo." : ""
+            }
+            return SourceListing(id: s.id, name: s.name, language: s.language, kind: s.kind, status: .implemented, note: note)
         }
         let planned: [SourceListing] = [
             SourceListing(id: .local, name: "Arquivos locais (CBZ/ZIP/pastas)", language: "all", kind: .localFiles,
-                          status: .planned, note: "Fase 2 — importação pelo app Arquivos"),
+                          status: .planned, note: "Importação pelo app Arquivos"),
             SourceListing(id: "komga", name: "Komga (servidor pessoal)", language: "all", kind: .personalServer,
-                          status: .planned, note: "Fase 3 — adaptador nativo da API REST do Komga"),
+                          status: .planned, note: "Adaptador nativo da API REST do Komga — próximo incremento"),
         ]
-        for p in planned where sources[p.id] == nil { result.append(p) }
+        lock.lock()
+        let registered = Set(sources.keys)
+        lock.unlock()
+        for p in planned where !registered.contains(p.id) { result.append(p) }
         return result
     }
 }

@@ -18,6 +18,7 @@ struct MangaDetailView: View {
     @State private var newestFirst = true
     @State private var expandedSummary = false
     @State private var confirmDeleteFiles = false
+    @State private var migrating: Manga?
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -53,6 +54,21 @@ struct MangaDetailView: View {
         .navigationTitle(manga?.title ?? "")
         .navigationBarTitleDisplayMode(.inline)
         .task(id: model.dataVersion) { load() }
+        .toolbar {
+            if let manga {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Menu {
+                        Button { migrating = manga } label: { Label("Migrar para outra fonte", systemImage: "arrow.left.arrow.right") }
+                        if let src = model.registry.source(manga.sourceId), src.kind != .demo, src.kind != .localFiles {
+                            NavigationLink {
+                                GlobalSearchView(initialQuery: manga.title)
+                            } label: { Label("Buscar em outras fontes", systemImage: "magnifyingglass") }
+                        }
+                    } label: { Label("Mais", systemImage: "ellipsis.circle") }
+                }
+            }
+        }
+        .sheet(item: $migrating) { MigrationSheet(manga: $0) }
         .confirmationDialog("Excluir os arquivos importados?", isPresented: $confirmDeleteFiles,
                             titleVisibility: .visible) {
             Button("Excluir arquivos e progresso", role: .destructive) {

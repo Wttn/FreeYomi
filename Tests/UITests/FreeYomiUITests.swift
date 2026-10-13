@@ -50,4 +50,40 @@ final class FreeYomiUITests: XCTestCase {
         app.tabBars.buttons["Explorar"].tap()
         XCTAssertTrue(app.staticTexts["Demonstração (local)"].waitForExistence(timeout: 5))
     }
+
+    /// Fase 3: MangaDex listado como fonte nativa e caminho para instalar extensões via servidor.
+    func testOnlineSourcesAndExtensionServerEntryPoints() {
+        app.tabBars.buttons["Explorar"].tap()
+        XCTAssertTrue(app.staticTexts["MangaDex"].waitForExistence(timeout: 5))
+        app.buttons["Extensões"].tap()
+        XCTAssertTrue(app.buttons["Conectar servidor de extensões"].waitForExistence(timeout: 10))
+        app.buttons["Conectar servidor de extensões"].tap()
+        XCTAssertTrue(app.textFields["http://192.168.0.10:4567"].waitForExistence(timeout: 5))
+    }
+
+    /// Tela "Repositórios de extensões": repositório padrão listado, adicionar
+    /// recusa endereço sem HTTPS (não depende de rede).
+    func testExtensionRepositoriesScreen() {
+        app.tabBars.buttons["Explorar"].tap()
+        app.buttons["Extensões"].tap()
+        let link = app.buttons["repositoriesLink"]
+        XCTAssertTrue(link.waitForExistence(timeout: 10))
+        link.tap()
+        XCTAssertTrue(app.navigationBars["Repositórios de extensões"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["https://raw.githubusercontent.com/keiyoushi/extensions/repo/index.pb"]
+            .waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Copiar"].firstMatch.exists)
+
+        app.buttons["addRepositoryButton"].tap()
+        let field = app.textFields["repositoryURLField"]
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.tap()
+        field.typeText("http://exemplo.com/index.pb")
+        app.buttons["Verificar"].tap()
+        XCTAssertTrue(app.staticTexts.containing(NSPredicate(format: "label CONTAINS 'recusados por segurança'")).firstMatch
+            .waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons.containing(NSPredicate(format: "label CONTAINS 'FelipeGFA'")).firstMatch.exists,
+                      "sugestões em \"Encontrar repositório\"")
+        app.buttons["Cancelar"].tap()
+    }
 }

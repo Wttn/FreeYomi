@@ -21,6 +21,13 @@ Nenhum pacote Swift, CocoaPod ou binário de terceiros é incluído.
 | GitHub Actions `actions/checkout`, `actions/upload-artifact` | MIT | CI |
 | XCTest | Apple / Apache-2.0 (corelibs no Linux) | Testes |
 
+## Serviços externos opcionais (não embutidos)
+
+| Serviço | Licença / termos | Uso |
+|---|---|---|
+| Suwayomi-Server (instalado pelo usuário no próprio computador) | MPL-2.0 | Executa as extensões; o FreeYomi é só um cliente da API. Nenhum código do Suwayomi é incluído no app |
+| API do MangaDex | Termos de uso da API (sem anúncios ou serviços pagos, crédito ao MangaDex e aos grupos) | Fonte nativa de leitura online |
+
 ## Dados de terceiros
 
 | Dado | Licença | Uso |

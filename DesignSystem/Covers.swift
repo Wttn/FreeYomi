@@ -24,7 +24,8 @@ struct CoverView: View {
             DemoCoverArt(title: manga.title, hue: DemoSource.hue(for: manga.key))
         } else if let cover = manga.coverURL, let rel = LocalSource.relativePath(fromCoverURL: cover) {
             CoverImage(ref: .file(relativePath: rel))
-        } else if let cover = manga.coverURL, let url = URL(string: cover), url.scheme == "https" {
+        } else if let cover = manga.coverURL, let url = URL(string: cover), url.scheme == "https" || url.scheme == "http" {
+            // HTTP só é aceito pelo pipeline para o servidor de extensões configurado.
             CoverImage(ref: .remote(url: cover, headers: [:]))
         } else {
             CoverPlaceholder()

@@ -9,11 +9,26 @@ import FoundationNetworking
 /// Cliente HTTP falso para testes sem rede.
 final class StubHTTP: HTTPClient, @unchecked Sendable {
     var responses: [String: Result<HTTPResponse, Error>] = [:]
+    /// Respostas por prefixo de URL (útil para URLs com parâmetros variáveis).
+    var prefixResponses: [(String, HTTPResponse)] = []
     var requested: [String] = []
-    func get(_ url: URL, headers: [String: String]) async throws -> HTTPResponse {
-        requested.append(url.absoluteString)
-        guard let r = responses[url.absoluteString] else { throw FYError.network("sem rota") }
-        return try r.get()
+    var requests: [HTTPRequest] = []
+    private let lock = NSLock()
+
+    func send(_ request: HTTPRequest) async throws -> HTTPResponse {
+        let key = request.url.absoluteString
+        let (exact, prefix) = lock.withLock { () -> (Result<HTTPResponse, Error>?, HTTPResponse?) in
+            requested.append(key)
+            requests.append(request)
+            return (responses[key], prefixResponses.first { key.hasPrefix($0.0) }?.1)
+        }
+        if let exact { return try exact.get() }
+        if let prefix { return prefix }
+        throw FYError.network("sem rota para \(key)")
+    }
+
+    func json(_ urlPrefix: String, _ text: String, status: Int = 200) {
+        prefixResponses.append((urlPrefix, HTTPResponse(statusCode: status, body: Data(text.utf8))))
     }
 }
 

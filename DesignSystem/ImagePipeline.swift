@@ -25,6 +25,13 @@ final class ImagePipeline {
     private var prefetchTasks: [String: Task<Void, Never>] = [:]
     private var aspectCache: [String: CGFloat] = [:]
     private let http = URLSessionHTTPClient()
+    /// Servidor de extensões: imagens dele usam autenticação e podem ser HTTP na rede local.
+    var serverConfig: SuwayomiConfig? {
+        didSet {
+            serverHTTP = serverConfig.map { URLSessionHTTPClient(policy: $0.policy, defaultHeaders: $0.authHeaders) }
+        }
+    }
+    private var serverHTTP: URLSessionHTTPClient?
     let disk: DiskCache
     /// Raiz dos arquivos importados (para `ImageRef.file` e capas `freeyomi-local://`).
     var localRoot: URL?
@@ -77,6 +84,9 @@ final class ImagePipeline {
         let localRoot = self.localRoot
         let http = self.http
         let disk = self.disk
+        let serverHost = serverConfig?.baseURL.host?.lowercased()
+        let serverPort = serverConfig.map { $0.baseURL.port ?? ($0.baseURL.scheme == "https" ? 443 : 80) }
+        let serverHTTP = self.serverHTTP
         let task = Task<UIImage, Error>.detached(priority: .userInitiated) {
             let data: Data
             switch ref {
@@ -91,18 +101,39 @@ final class ImagePipeline {
                     throw FYError.notFound("arquivo da página")
                 }
                 data = d
-            case .remote(let urlString, let headers):
+            case .remote(let urlString, let rawHeaders):
                 guard let url = URL(string: urlString) else { throw FYError.invalidData("URL de imagem inválida") }
                 if let cached = disk.data(for: urlString) {
                     data = cached
                 } else {
-                    let response = try await http.get(url, headers: headers)
+                    // Marcadores internos nunca são enviados ao servidor.
+                    var headers = rawHeaders
+                    let reportToMangaDex = headers.removeValue(forKey: MangaDexReporter.marker) != nil
+                    let isServer = url.host?.lowercased() == serverHost
+                        && (url.port ?? (url.scheme == "https" ? 443 : 80)) == serverPort
+                    let client: HTTPClient = (isServer ? serverHTTP : nil) ?? http
+                    let started = Date()
+                    let response: HTTPResponse
+                    do {
+                        response = try await client.get(url, headers: headers)
+                    } catch {
+                        if reportToMangaDex {
+                            await MangaDexReporter.report(url: urlString, success: false, cached: false, bytes: 0,
+                                                          durationMs: Int(Date().timeIntervalSince(started) * 1000), http: http)
+                        }
+                        throw error
+                    }
+                    let ok = (200..<300).contains(response.statusCode) && ImageFormat.detect(response.body) != nil
+                    if reportToMangaDex {
+                        await MangaDexReporter.report(url: urlString, success: ok,
+                                                      cached: (response.headers["x-cache"] ?? "").hasPrefix("HIT"),
+                                                      bytes: response.body.count,
+                                                      durationMs: Int(Date().timeIntervalSince(started) * 1000), http: http)
+                    }
                     guard (200..<300).contains(response.statusCode) else {
                         throw FYError.httpStatus(response.statusCode, url: Redactor.redact(url))
                     }
-                    guard ImageFormat.detect(response.body) != nil else {
-                        throw FYError.invalidData("o servidor não retornou uma imagem")
-                    }
+                    guard ok else { throw FYError.invalidData("o servidor não retornou uma imagem") }
                     disk.store(response.body, for: urlString)
                     data = response.body
                 }

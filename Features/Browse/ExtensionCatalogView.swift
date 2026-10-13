@@ -5,32 +5,46 @@ import FYDomain
 import FYData
 import FYServices
 
-/// Catálogo de extensões (índice público Keiyoushi).
+/// Catálogo de extensões de todos os repositórios configurados (sem servidor).
 ///
 /// Apenas METADADOS são baixados. Nenhum APK/JAR é baixado ou executado.
 /// Cada extensão é classificada honestamente: "Requer Android" até que um
-/// adaptador nativo Swift seja escrito para ela.
+/// adaptador nativo Swift seja escrito para ela, ou até conectar um servidor.
 struct ExtensionCatalogView: View {
     @Environment(AppModel.self) private var model
 
-    @State private var snapshot: CatalogSnapshot?
-    @State private var isLoading = false
-    @State private var errorMessage: String?
     @State private var search = ""
     @State private var language: String = "pt-BR"
 
+    struct Item: Identifiable {
+        let ext: CatalogExtension
+        let badge: String
+        let repoURL: String
+        var id: String { repoURL + "|" + ext.packageName }
+    }
+
+    private var items: [Item] {
+        model.repositoryCatalogs.flatMap { rc -> [Item] in
+            guard let s = rc.snapshot else { return [] }
+            return s.index.extensions.map { Item(ext: $0, badge: s.index.badgeLabel, repoURL: rc.indexURL) }
+        }
+    }
+
     var body: some View {
+        let all = items
+        let filtered = filter(all)
         List {
+            ConnectServerBanner()
+            RepositoriesLinkSection()
             statusSection
-            if let snapshot {
-                let filtered = filter(snapshot.index.extensions)
+            if !all.isEmpty {
                 Section {
-                    ForEach(filtered) { ExtensionRow(ext: $0) }
+                    ForEach(filtered) { ExtensionRow(ext: $0.ext, badge: $0.badge) }
                 } header: {
                     Text("\(filtered.count) extensões")
                 } footer: {
-                    Text("Extensões do catálogo são programas Kotlin para Android e não podem ser executadas no iOS. "
-                         + "O FreeYomi as lista para transparência e para orientar quais adaptadores nativos criar.")
+                    Text("Extensões são programas Kotlin/JVM: o iPhone não as executa. Para usá-las, conecte um "
+                         + "servidor de extensões (acima). Sem servidor, use as fontes nativas, como o MangaDex.")
                 }
             }
         }
@@ -41,78 +55,77 @@ struct ExtensionCatalogView: View {
                 Menu {
                     Picker("Idioma", selection: $language) {
                         Text("Todos").tag("")
-                        ForEach(availableLanguages, id: \.self) { Text(LanguageName.display($0)).tag($0) }
+                        ForEach(languages(all), id: \.self) { Text(LanguageName.display($0)).tag($0) }
                     }
                 } label: { Label("Idioma", systemImage: "character.bubble") }
             }
         }
-        .refreshable { await refresh() }
+        .refreshable { await model.refreshRepositories() }
         .task {
-            if snapshot == nil {
-                snapshot = try? model.catalog.loadCache()
-                if snapshot == nil { await refresh() }
-            }
+            if model.repositoryCatalogs.isEmpty { model.loadCachedRepositories() }
+            if model.repositoryCatalogs.contains(where: { $0.snapshot == nil }) { await model.refreshRepositories() }
         }
     }
 
     @ViewBuilder
     private var statusSection: some View {
-        Section {
-            if isLoading {
-                HStack { ProgressView(); Text("Baixando índice…").foregroundStyle(.secondary) }
-            }
-            if let errorMessage {
-                Label(errorMessage, systemImage: "wifi.exclamationmark").foregroundStyle(.orange).font(.callout)
-            }
-            if let s = snapshot {
-                LabeledContent("Repositório", value: "\(s.index.name) (\(s.index.badgeLabel))")
-                LabeledContent("Origem", value: URL(string: s.sourceURL)?.host ?? s.sourceURL)
-                LabeledContent("Sincronizado", value: s.fetchedAt.formatted(date: .abbreviated, time: .shortened))
-                if s.isFromCache {
-                    Text(s.networkError.map { "Mostrando cópia local. \($0)" } ?? "Mostrando cópia local.")
+        let failed = model.repositoryCatalogs.filter { $0.error != nil }
+        let cached = model.repositoryCatalogs.compactMap(\.snapshot).filter(\.isFromCache)
+        if model.isRefreshingRepositories || !failed.isEmpty || !cached.isEmpty {
+            Section {
+                if model.isRefreshingRepositories {
+                    HStack { ProgressView(); Text("Baixando índices…").foregroundStyle(.secondary) }
+                }
+                ForEach(failed) { rc in
+                    Label("\(rc.repository.name): \(rc.error ?? "")", systemImage: "wifi.exclamationmark")
+                        .foregroundStyle(.orange).font(.callout)
+                }
+                if !cached.isEmpty {
+                    Text("Alguns repositórios estão sendo exibidos a partir da cópia local.")
                         .font(.caption).foregroundStyle(.secondary)
                 }
-            } else if !isLoading && errorMessage == nil {
-                Text("Nenhum catálogo baixado ainda.").foregroundStyle(.secondary)
             }
-            Button {
-                Task { await refresh() }
-            } label: { Label("Atualizar catálogo", systemImage: "arrow.clockwise") }
-            .disabled(isLoading)
-        } header: {
-            Text("Catálogo")
         }
     }
 
-    private var availableLanguages: [String] {
-        guard let s = snapshot else { return [] }
-        return Array(Set(s.index.extensions.flatMap(\.languages))).sorted()
+    private func languages(_ list: [Item]) -> [String] {
+        Array(Set(list.flatMap(\.ext.languages))).sorted()
     }
 
-    private func filter(_ list: [CatalogExtension]) -> [CatalogExtension] {
-        list.filter { e in
-            (model.settings.showNSFWExtensions || e.contentWarning != .nsfw)
+    private func filter(_ list: [Item]) -> [Item] {
+        list.filter { i in
+            let e = i.ext
+            return (model.settings.showNSFWExtensions || e.contentWarning != .nsfw)
                 && (language.isEmpty || e.languages.contains(language))
                 && (search.isEmpty || e.name.localizedCaseInsensitiveContains(search))
         }
-        .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+        .sorted { $0.ext.name.localizedCaseInsensitiveCompare($1.ext.name) == .orderedAscending }
     }
+}
 
-    private func refresh() async {
-        isLoading = true
-        defer { isLoading = false }
-        do {
-            let s = try await model.catalog.refresh(from: model.settings.catalogURL)
-            snapshot = s
-            errorMessage = nil
-        } catch {
-            errorMessage = error.localizedDescription
+/// Atalho para a tela de repositórios, no topo das listas de extensões.
+struct RepositoriesLinkSection: View {
+    @Environment(AppModel.self) private var model
+
+    var body: some View {
+        Section {
+            NavigationLink {
+                ExtensionRepositoriesView()
+            } label: {
+                LabeledContent {
+                    Text("\(model.settings.extensionRepositories.count)").foregroundStyle(.secondary)
+                } label: {
+                    Label("Repositórios de extensões", systemImage: "shippingbox")
+                }
+            }
+            .accessibilityIdentifier("repositoriesLink")
         }
     }
 }
 
 struct ExtensionRow: View {
     let ext: CatalogExtension
+    var badge: String = ""
 
     var body: some View {
         let compat = CompatibilityResolver.resolve(ext)
@@ -134,6 +147,7 @@ struct ExtensionRow: View {
                      + (ext.languages.count > 4 ? " +\(ext.languages.count - 4)" : ""))
                     .font(.caption).foregroundStyle(.secondary).lineLimit(1)
                 HStack(spacing: 6) {
+                    if !badge.isEmpty { RepoBadge(text: badge) }
                     pill(compat.label, color: compat == .requiresAndroid ? .orange : .green)
                     if ext.contentWarning == .nsfw || ext.contentWarning == .mixed {
                         pill(ext.contentWarning.label, color: .red)

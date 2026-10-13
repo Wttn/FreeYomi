@@ -338,42 +338,74 @@ struct ReaderSettingsView: View {
 
 struct ExtensionSettingsView: View {
     @Environment(AppModel.self) private var model
-    @State private var draftURL = ""
+
+    static let mangaDexLanguages = ["pt-br", "en", "es-la", "es", "fr", "it", "de", "ja", "ko", "zh", "id", "ru", "tr", "vi"]
+
+    private var serverSummary: String {
+        switch model.serverState {
+        case .notConfigured: return "Não configurado"
+        case .connecting: return "Conectando…"
+        case .connected(_, _, let n): return "\(n) fontes"
+        case .failed: return "Erro"
+        }
+    }
 
     var body: some View {
         @Bindable var model = model
         Form {
             Section {
-                TextField("URL do índice", text: $draftURL)
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-                    .keyboardType(.URL)
-                    .font(.footnote.monospaced())
-                Button("Salvar URL") {
-                    let trimmed = draftURL.trimmingCharacters(in: .whitespacesAndNewlines)
-                    if let url = URL(string: trimmed), url.scheme == "https" {
-                        model.settings.catalogURL = trimmed
-                    } else {
-                        model.alertMessage = "Informe um endereço HTTPS válido."
+                NavigationLink {
+                    ExtensionRepositoriesView()
+                } label: {
+                    LabeledContent {
+                        Text("\(model.settings.extensionRepositories.count)").foregroundStyle(.secondary)
+                    } label: {
+                        Label("Repositórios de extensões", systemImage: "shippingbox")
                     }
                 }
-                Button("Restaurar padrão (Keiyoushi)") {
-                    model.settings.catalogURL = AppSettings().catalogURL
-                    draftURL = model.settings.catalogURL
-                }
-            } header: {
-                FYSectionHeader("Repositório de metadados")
             } footer: {
-                Text("Aceita index.pb (protobuf, com ou sem gzip) ou repo.json com o campo index_v2. "
-                     + "Apenas metadados são baixados; nenhum código é executado.")
+                Text("Adicione repositórios (index.pb ou repo.json) como no Mihon e no Tachimanga. "
+                     + "Apenas metadados são baixados no iPhone.")
             }
             Section {
-                Toggle("Mostrar extensões adultas (18+)", isOn: $model.settings.showNSFWExtensions)
+                Toggle("Mostrar conteúdo adulto (18+)", isOn: $model.settings.showNSFWExtensions)
+            } footer: {
+                Text("Vale para o catálogo, para as fontes do servidor e para o MangaDex.")
+            }
+
+            Section {
+                NavigationLink {
+                    ExtensionServerSettingsView()
+                } label: {
+                    LabeledContent {
+                        Text(serverSummary).foregroundStyle(.secondary)
+                    } label: {
+                        Label("Servidor de extensões", systemImage: "server.rack")
+                    }
+                }
+            } header: {
+                FYSectionHeader("Instalar extensões")
+            } footer: {
+                Text("As extensões rodam no Suwayomi-Server, no seu computador. O iPhone só exibe e lê.")
+            }
+
+            Section {
+                Toggle("MangaDex", isOn: $model.settings.mangaDexEnabled)
+                if model.settings.mangaDexEnabled {
+                    Picker("Idioma das traduções", selection: $model.settings.mangaDexLanguage) {
+                        ForEach(Self.mangaDexLanguages, id: \.self) { Text(LanguageName.display($0)).tag($0) }
+                    }
+                    Toggle("Economia de dados (imagens comprimidas)", isOn: $model.settings.mangaDexDataSaver)
+                }
+            } header: {
+                FYSectionHeader("Fontes nativas (sem servidor)")
+            } footer: {
+                Text("Dados e imagens fornecidos pelo MangaDex (mangadex.org). Os grupos de tradução são creditados em cada capítulo. "
+                     + "Capítulos publicados só em sites oficiais externos não aparecem.")
             }
         }
         .navigationTitle("Extensões")
         .navigationBarTitleDisplayMode(.inline)
-        .onAppear { draftURL = model.settings.catalogURL }
     }
 }
 

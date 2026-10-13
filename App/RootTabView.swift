@@ -55,6 +55,10 @@ struct RootTabView: View {
                 .accessibilityElement(children: .combine)
             }
         }
+        .sheet(item: Binding(
+            get: { model.pendingRepositoryURL.map { AddRepositoryRequest(initialURL: $0) } },
+            set: { if $0 == nil { model.pendingRepositoryURL = nil } }
+        )) { AddRepositorySheet(request: $0) }
         .alert("Aviso", isPresented: Binding(
             get: { model.alertMessage != nil },
             set: { if !$0 { model.alertMessage = nil } }
