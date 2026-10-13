@@ -62,6 +62,18 @@ final class ImagePipeline {
         if let cached = memory.object(forKey: k as NSString) { return cached }
         if let running = inFlight[k] { return try await running.value }
 
+        // Páginas de demonstração: desenhadas pela própria interface e rasterizadas aqui.
+        if case .demo(let seed, let label, let ratio) = ref {
+            let width: CGFloat = 600
+            let renderer = ImageRenderer(content: DemoPageView(seed: seed, label: label, aspectRatio: ratio)
+                .frame(width: width, height: width * CGFloat(ratio)))
+            renderer.scale = min(2, CGFloat(targetPixelWidth) / width)
+            guard let rendered = renderer.uiImage else { throw FYError.invalidData("falha ao desenhar a página") }
+            memory.setObject(rendered, forKey: k as NSString,
+                             cost: Int(rendered.size.width * rendered.scale * rendered.size.height * rendered.scale * 4))
+            return rendered
+        }
+
         let localRoot = self.localRoot
         let http = self.http
         let disk = self.disk
@@ -69,7 +81,7 @@ final class ImagePipeline {
             let data: Data
             switch ref {
             case .demo:
-                throw FYError.unsupported("páginas de demonstração são desenhadas pela interface")
+                throw FYError.unsupported("página de demonstração") // tratada acima
             case .file(let relative):
                 guard let root = localRoot, let safe = PathSanitizer.safeRelativePath(relative) else {
                     throw FYError.notFound(relative)
@@ -172,7 +184,6 @@ final class ImagePipeline {
 
     func prefetch(_ refs: [ImageRef], targetPixelWidth: Int) {
         for ref in refs {
-            if case .demo = ref { continue }
             let k = key(ref, targetPixelWidth)
             guard memory.object(forKey: k as NSString) == nil, prefetchTasks[k] == nil else { continue }
             prefetchTasks[k] = Task { [weak self] in

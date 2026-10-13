@@ -65,7 +65,12 @@ final class ReaderPhase2UITests: XCTestCase {
         }
         XCTAssertEqual(app.state, .runningForeground, "o app não pode encerrar por falta de memória")
         // O app continua respondendo após rolar até o fim (regressão do travamento na borda).
-        app.tap()
-        XCTAssertTrue(app.buttons["Fechar leitor"].waitForExistence(timeout: 10))
+        let pages = app.scrollViews.firstMatch
+        XCTAssertTrue(pages.waitForExistence(timeout: 10))
+        pages.pinch(withScale: 2.0, velocity: 1.5)   // zoom também no modo vertical
+        pages.doubleTap()                             // volta ao tamanho normal
+        let close = app.buttons["Fechar leitor"]
+        if !close.exists { pages.tap() }              // toque simples alterna os controles
+        XCTAssertTrue(close.waitForExistence(timeout: 10))
     }
 }

@@ -52,11 +52,15 @@ Log: `docs/test-results/phase2-core-linux.txt`.
 
 O app compilou no Xcode 26.6 e 7 dos 8 testes de interface passaram. `testWebtoonScrollingMemory` revelou um **travamento real**: ao rolar até o fim de um capítulo no modo webtoon, a thread principal deixava de responder. Causa provável: a página trocava de altura ao descarregar a imagem fora da tela (o espaço reservado tinha uma proporção um pouco diferente da imagem decodificada), entrando num ciclo de aparecer/desaparecer na borda da área visível. Correção: a altura de cada página passou a ser fixada pela proporção lida do arquivo, antes e depois de carregar; as imagens não são mais descartadas manualmente ao sair da tela (a lista preguiçosa e o `NSCache` cuidam disso); e o espaço reservado não tem animação infinita. O teste agora também verifica que o app continua respondendo após rolar até o fim.
 
+### Segunda tentativa
+
+A correção acima não bastou: o travamento continuou, agora no 7º deslize, de novo ao chegar ao fim do capítulo. Em vez de mais um remendo, os modos verticais foram reescritos em UIKit (`Features/Reader/VerticalPagesView.swift`): um `UIScrollView` com as páginas posicionadas pela proporção conhecida, carregamento de ±2 páginas ao redor da visível, descarte explícito das distantes e nenhum rastreamento de geometria do SwiftUI. Consequências positivas: **zoom (pinça e toque duplo) também nos modos verticais** e **restauração exata** da posição. As páginas de demonstração passaram a ser rasterizadas (`ImageRenderer`) para usar o mesmo caminho. O teste de webtoon agora também faz zoom no modo vertical.
+
 ## Pendências e problemas conhecidos
 
 1. **Compilação do app no Xcode ainda não confirmada** para o código novo; corrijo o que o CI apontar.
-2. Zoom nos modos verticais (contínuo/webtoon): ainda não implementado (Fase 5).
-3. A restauração do deslocamento vertical é aproximada (âncora proporcional), como descrito em `TECHNICAL_DECISIONS.md` §11.
+2. ~~Zoom nos modos verticais~~ e ~~restauração aproximada~~: resolvidos com o leitor vertical em UIKit.
+3. Imagens remotas de proporção desconhecida ajustam o layout ao carregar (preservando a posição); só se aplica a fontes online (Fase 3).
 4. CBR/RAR e CB7 não são suportados (licença do UnRAR); o app orienta a converter para CBZ.
 5. Orientação de tela travada por leitor e configurações por título: Fase 5.
 6. O tempo de importação de arquivos grandes acontece com indicador, mas sem barra de progresso por página.

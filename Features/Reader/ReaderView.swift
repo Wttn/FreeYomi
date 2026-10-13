@@ -129,51 +129,17 @@ struct ReaderView: View {
         .tabViewStyle(.page(indexDisplayMode: .never))
     }
 
-    @ViewBuilder
+    /// Modos verticais: leitor em UIKit (`VerticalPagesView`), com zoom e posição exata.
     private func verticalReader(paging: Bool, spacing: CGFloat) -> some View {
-        ScrollViewReader { proxy in
-            Group {
-                if paging {
-                    verticalScrollView(paging: true, spacing: spacing).scrollTargetBehavior(.paging)
-                } else {
-                    verticalScrollView(paging: false, spacing: spacing)
-                }
-            }
-            .onAppear { perform(scrollRequest, proxy: proxy) }
-            .onChange(of: scrollRequest) { _, request in perform(request, proxy: proxy) }
-        }
+        VerticalPagesView(pages: pages, paged: paging, spacing: spacing, request: scrollRequest,
+                          onPosition: { page, offset in updatePosition(page, offset: offset) },
+                          onTap: { toggleControls() })
     }
 
-    private func verticalScrollView(paging: Bool, spacing: CGFloat) -> some View {
-        ScrollView(.vertical) {
-            LazyVStack(spacing: spacing) {
-                ForEach(pages) { page in
-                    VerticalReaderPage(page: page, pointWidth: screenWidth, fillScreen: paging)
-                        .id(page.index)
-                        .onGeometryChange(for: CGRect.self, of: { $0.frame(in: .named("readerScroll")) }) { frame in
-                            updateVisible(page.index, frame: frame)
-                        }
-                }
-            }
-            .scrollTargetLayout()
-            .contentShape(Rectangle())
-            .onTapGesture { toggleControls() }
-        }
-        .coordinateSpace(.named("readerScroll"))
-        .scrollIndicators(.hidden)
-    }
-
-    private func perform(_ request: ScrollRequest?, proxy: ScrollViewProxy) {
-        guard let request else { return }
-        // Âncora proporcional: aproxima o deslocamento salvo dentro da página.
-        proxy.scrollTo(request.page, anchor: UnitPoint(x: 0.5, y: min(max(request.offset, 0), 1)))
-    }
-
-    /// Página visível = a que cruza o topo da área visível.
-    private func updateVisible(_ index: Int, frame: CGRect) {
-        guard didRestorePosition, frame.height > 0, frame.minY <= 1, frame.maxY > 1 else { return }
+    /// Posição informada pelo leitor vertical (página no topo + deslocamento).
+    private func updatePosition(_ index: Int, offset: Double) {
+        guard didRestorePosition else { return }
         if current != index { current = index }
-        let offset = Double(min(max(-frame.minY / frame.height, 0), 1))
         if abs(offset - scrollOffset) > 0.02 {
             scrollOffset = offset
             scheduleSave()
@@ -482,37 +448,5 @@ struct PagedReaderPage: View {
             }
         }
         .onDisappear { image = nil }
-    }
-}
-
-/// Página dos modos verticais, sempre na largura da tela.
-struct VerticalReaderPage: View {
-    let page: Page
-    let pointWidth: CGFloat
-    let fillScreen: Bool
-
-    var body: some View {
-        Group {
-            if case .demo(let seed, let label, let ratio) = page.image {
-                DemoPageView(seed: seed, label: label, aspectRatio: ratio)
-            } else {
-                PipelineImage(ref: page.image, targetPointWidth: pointWidth,
-                              placeholderAspect: ImagePipeline.shared.knownAspect(page.image) ?? 1.42,
-                              errorIndex: page.index)
-            }
-        }
-        .frame(maxWidth: .infinity)
-        .modifier(FillScreenIf(enabled: fillScreen))
-    }
-}
-
-private struct FillScreenIf: ViewModifier {
-    let enabled: Bool
-    func body(content: Content) -> some View {
-        if enabled {
-            content.containerRelativeFrame([.horizontal, .vertical])
-        } else {
-            content
-        }
     }
 }
