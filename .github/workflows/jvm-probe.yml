@@ -45,7 +45,7 @@ jobs:
         run: |
           RUN=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow jvm-ios.yml --branch "$GITHUB_REF_NAME" \
                 --limit 20 --json databaseId,conclusion,status \
-                --jq '[.[] | select(.status=="completed")][0].databaseId')
+                --jq '[.[] | select(.conclusion=="success")][0].databaseId')
           echo "run=$RUN" >> "$GITHUB_OUTPUT"
           echo "::notice title=OpenJDK::usando o run $RUN"
 
