@@ -13,7 +13,7 @@ on:
     branches: [prototipo/jvm-embutida]
     paths:
       - .github/workflows/jvm-ios.yml
-      - prototype/jvm/**
+      - prototype/jvm/patches/**
 
 concurrency:
   group: jvm-ios-${{ github.ref }}
@@ -60,6 +60,14 @@ jobs:
           git fetch -q --depth 1 origin "$OPENJDK_MOBILE_COMMIT" || git fetch -q --depth 1 origin master
           git checkout -q FETCH_HEAD
           git log -1 --format='openjdk/mobile %H %cd'
+
+      - uses: actions/checkout@v4
+        with:
+          path: freeyomi
+          sparse-checkout: prototype/jvm/patches
+
+      - name: Ajustes do FreeYomi no OpenJDK
+        run: python3 freeyomi/prototype/jvm/patches/apply.py mobile | sed 's/^/::notice title=patch::/'
 
       - name: Baixar pacote de apoio (libffi e cups para iOS)
         run: |
