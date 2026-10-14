@@ -25,9 +25,14 @@ env:
 
 jobs:
   openjdk-ios:
-    name: OpenJDK Mobile (iOS, Zero, estático)
+    name: OpenJDK Mobile (${{ matrix.sdk }}, Zero, estático)
     runs-on: macos-26
     timeout-minutes: 240
+    strategy:
+      fail-fast: false
+      matrix:
+        # iphoneos = aparelho; iphonesimulator = para provar a JVM no simulador do CI.
+        sdk: [iphoneos, iphonesimulator]
     steps:
       - name: Selecionar Xcode 26
         run: |
@@ -68,7 +73,11 @@ jobs:
           FFILIB=$(dirname "$(find "$SUPPORT" -path '*libffi*' -name 'libffi*.a' | head -1)")
           CUPS=$(find "$SUPPORT" -maxdepth 2 -type d -name 'cups-*' | head -1)
           echo "libffi include=$FFI lib=$FFILIB cups=$CUPS"
-          SDK=$(xcrun --sdk iphoneos --show-sdk-path)
+          SDK=$(xcrun --sdk ${{ matrix.sdk }} --show-sdk-path)
+          EXTRA=""
+          if [ "${{ matrix.sdk }}" = iphonesimulator ]; then
+            EXTRA="--with-extra-cflags=-target arm64-apple-ios17.0-simulator --with-extra-cxxflags=-target arm64-apple-ios17.0-simulator --with-extra-ldflags=-target arm64-apple-ios17.0-simulator"
+          fi
           sh configure \
             --disable-warnings-as-errors \
             --openjdk-target=aarch64-macos-ios \
@@ -76,7 +85,7 @@ jobs:
             --with-libffi-include="$FFI" \
             --with-libffi-lib="$FFILIB" \
             --with-cups-include="$CUPS" \
-            --with-sysroot="$SDK" 2>&1 | tail -60
+            --with-sysroot="$SDK" $EXTRA 2>&1 | tail -60
 
       - name: Compilar biblioteca estática (static-libs-image)
         working-directory: mobile
@@ -97,17 +106,24 @@ jobs:
         run: |
           find . -maxdepth 4 | head -100
           du -sh * || true
-          ls -la static-libs/lib/zero/ || true
+          # Também como anotações, visíveis na página do run sem baixar o log.
+          find . -maxdepth 4 -type f -size +100k -exec ls -l {} \; | awk '{print "::notice title=${{ matrix.sdk }}::" $5 " " $9}' | head -45
+          find . -maxdepth 3 -type d | awk '{print "::notice title=${{ matrix.sdk }} dir::" $0}' | head -40
+          lipo -info static-libs/lib/zero/libjvm.a 2>&1 | sed 's/^/::notice title=lipo::/' || true
+          otool -l static-libs/lib/zero/libjvm.a 2>/dev/null | grep -m2 -A4 LC_BUILD_VERSION | tr '\n' ' ' | sed 's/^/::notice title=platform::/'; echo
+          (cd ../../ && ls) | tr '\n' ' ' | sed 's/^/::notice title=build::/'; echo
 
       - name: Empacotar
         run: |
           cd mobile/build/ios-aarch64-zero-release/images
-          tar -czf "$GITHUB_WORKSPACE/openjdk-ios-zero.tgz" $(ls -d static-libs static-jdk 2>/dev/null)
-          ls -la "$GITHUB_WORKSPACE/openjdk-ios-zero.tgz"
+          INC=$GITHUB_WORKSPACE/mobile/build/ios-aarch64-zero-release/support/modules_include/java.base
+          mkdir -p include && cp -R "$INC"/* include/ 2>/dev/null || cp $GITHUB_WORKSPACE/mobile/src/java.base/share/native/include/*.h $GITHUB_WORKSPACE/mobile/src/java.base/unix/native/include/*.h include/
+          tar -czf "$GITHUB_WORKSPACE/openjdk-${{ matrix.sdk }}-zero.tgz" include $(ls -d static-libs static-jdk 2>/dev/null)
+          ls -la "$GITHUB_WORKSPACE/openjdk-${{ matrix.sdk }}-zero.tgz"
 
       - name: Publicar artefato
         uses: actions/upload-artifact@v4
         with:
-          name: openjdk-ios-zero
-          path: openjdk-ios-zero.tgz
+          name: openjdk-${{ matrix.sdk }}-zero
+          path: openjdk-${{ matrix.sdk }}-zero.tgz
           retention-days: 30
