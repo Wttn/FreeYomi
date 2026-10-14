@@ -45,6 +45,10 @@ object FYHost {
         if (parts.size < 3) return "ERRO argumento inválido: $arg"
         val (root, jar, className) = parts
         val log = StringBuilder()
+        // Threads anexadas pelo JNI não têm class loader de contexto (o Typesafe Config precisa).
+        if (Thread.currentThread().contextClassLoader == null) {
+            Thread.currentThread().contextClassLoader = FYHost::class.java.classLoader
+        }
         return try {
             val t0 = System.currentTimeMillis()
             if (!ready) {
