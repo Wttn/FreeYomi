@@ -160,6 +160,9 @@ jobs:
           xcodebuild test -project JVMProbe.xcodeproj -scheme JVMProbe -destination "id=$UDID" \
             CODE_SIGNING_ALLOWED=NO > sim.log 2>&1 || status=$?
           grep -E "FYJVM-RESULT" sim.log | head -3 | sed 's/^/::notice title=resultado::/'
+          DATA=$(xcrun simctl get_app_container "$UDID" io.github.freeyomi.jvmprobe data 2>/dev/null || true)
+          LOG=$(find "${DATA:-/nonexistent}" -name fyjvm.log 2>/dev/null | head -1)
+          if [ -n "$LOG" ]; then grep -v "^\s*$" "$LOG" | head -40 | sed 's/^/::notice title=saída da JVM::/'; else echo "::warning title=saída da JVM::fyjvm.log não encontrado"; fi
           if [ "$status" -ne 0 ]; then
             grep -E "Test Case|XCTAssert|error -|: error|Undefined symbols|crash|Crash|Fatal|fatal|SIG|abort|unexpected exit|Error occurred|Exception|JNI|# |Restarting" sim.log | grep -v "ld: warning" | sort -u | head -40 | sed 's/^/::error title=simulador::/'
             grep -A4 "Error occurred during initialization" sim.log | head -12 | sed 's/^/::error title=JVM::/'

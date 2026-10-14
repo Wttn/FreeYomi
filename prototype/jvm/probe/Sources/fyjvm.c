@@ -8,8 +8,34 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdarg.h>
 
 static JavaVM *g_vm = NULL;
+static FILE *g_log = NULL;
+
+// Toda a saída da JVM vai para $TMPDIR/fyjvm.log (o CI lê esse arquivo do
+// contêiner do app no simulador, inclusive quando a JVM encerra o processo).
+static void fy_open_log(void) {
+    if (g_log) return;
+    const char *tmp = getenv("TMPDIR");
+    char path[1024];
+    snprintf(path, sizeof path, "%s/fyjvm.log", tmp ? tmp : "/tmp");
+    g_log = fopen(path, "w");
+}
+
+static jint JNICALL fy_vfprintf(FILE *stream, const char *format, va_list args) {
+    (void)stream;
+    fy_open_log();
+    if (!g_log) return 0;
+    jint n = (jint)vfprintf(g_log, format, args);
+    fflush(g_log);
+    return n;
+}
+
+static void JNICALL fy_exit_hook(jint code) {
+    fy_open_log();
+    if (g_log) { fprintf(g_log, "\n[fyjvm] a JVM pediu exit(%d)\n", (int)code); fflush(g_log); }
+}
 
 typedef struct {
     const char *classPath;
@@ -49,6 +75,8 @@ static void *fy_thread(void *arg) {
     c->result = -1;
 
     if (g_vm == NULL) {
+        fy_open_log();
+        if (g_log) { fprintf(g_log, "[fyjvm] classpath=%s\n", c->classPath); fflush(g_log); }
         char cp[8192];
         snprintf(cp, sizeof cp, "-Djava.class.path=%s", c->classPath);
         JavaVMOption options[] = {
@@ -59,7 +87,9 @@ static void *fy_thread(void *arg) {
             { .optionString = "-Xss4m" },
             { .optionString = "-XX:-UsePerfData" },
             { .optionString = "-Djava.awt.headless=true" },
-            { .optionString = "-Xlog:class+path=info,os=info:stdout" },
+            { .optionString = "-Xlog:class+path=info,os=info" },
+            { .optionString = "vfprintf", .extraInfo = (void *)fy_vfprintf },
+            { .optionString = "exit", .extraInfo = (void *)fy_exit_hook },
         };
         JavaVMInitArgs args;
         args.version = JNI_VERSION_10;
