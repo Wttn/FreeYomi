@@ -22,7 +22,7 @@ jobs:
     timeout-minutes: 60
     permissions:
       actions: read
-      contents: read
+      contents: write
     env:
       GH_TOKEN: ${{ github.token }}
     steps:
@@ -178,3 +178,31 @@ jobs:
             tail -100 sim.log
             exit "$status"
           fi
+
+      - name: Publicar logs no branch ci-logs
+        if: always()
+        working-directory: prototype/jvm/probe
+        run: |
+          OUT=/tmp/ci-logs/probe
+          mkdir -p "$OUT"
+          for f in device.log sim.log; do [ -f "$f" ] && grep -v "ld: warning" "$f" | tail -400 > "$OUT/$f"; done
+          cp "$HOME/fyjvm.log" "$OUT/" 2>/dev/null || true
+          UDID=$(xcrun simctl list devices booted -j | python3 -c "import json,sys;d=json.load(sys.stdin)['devices'];print(next((x['udid'] for v in d.values() for x in v),''))" || true)
+          HSERR=$(find /Users/runner/Library/Developer/CoreSimulator/Devices -name 'hs_err_pid*.log' 2>/dev/null | head -1)
+          if [ -n "$HSERR" ]; then
+            cp "$HSERR" "$OUT/hs_err.log"
+            BIN=$(find ~/Library/Developer/Xcode/DerivedData -path '*Debug-iphonesimulator/JVMProbe.app/JVMProbe' | head -1)
+            PC=$(grep -oE "pc=0x[0-9a-f]+" "$HSERR" | head -1 | cut -d= -f2)
+            LOAD=$(grep -E "JVMProbe.app/JVMProbe" "$HSERR" | grep -oE "^0x[0-9a-f]+" | head -1)
+            if [ -n "$BIN" ] && [ -n "$PC" ] && [ -n "$LOAD" ]; then
+              atos -o "$BIN" -l "$LOAD" "$PC" > "$OUT/crash-symbol.txt" 2>&1 || true
+              grep -oE "0x[0-9a-f]{9,}" "$HSERR" | sort -u | head -60 | xargs atos -o "$BIN" -l "$LOAD" > "$OUT/addresses.txt" 2>&1 || true
+            fi
+          fi
+          ls -la "$OUT"
+          cd /tmp/ci-logs
+          git init -q && git checkout -q -b ci-logs
+          echo "run $GITHUB_RUN_ID ($GITHUB_SHA)" > README.txt
+          git add -A && git -c user.name="ci" -c user.email="ci@users.noreply.github.com" commit -qm "logs do run $GITHUB_RUN_ID"
+          git push -qf "https://x-access-token:${{ github.token }}@github.com/$GITHUB_REPOSITORY" ci-logs
+
