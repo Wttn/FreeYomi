@@ -22,7 +22,15 @@ jobs:
         run: apt-get update && apt-get install -y --no-install-recommends libsqlite3-dev zlib1g-dev
       - name: Testes
         working-directory: Packages/FreeYomiKit
-        run: swift test --parallel
+        shell: bash
+        run: |
+          status=0
+          swift test --parallel > test.log 2>&1 || status=$?
+          tail -30 test.log
+          # Erros de compilação e falhas viram anotações (visíveis sem baixar o log).
+          grep -E "error:" test.log | sort -u | head -30 | sed 's/^/::error::/' || true
+          grep -E "XCTAssert|failed \(|Fatal error" test.log | sort -u | head -30 | sed 's/^/::error::/' || true
+          exit "$status"
 
   # App iOS: gera o projeto, compila, roda testes de interface e produz um .ipa sem assinatura.
   ios:
