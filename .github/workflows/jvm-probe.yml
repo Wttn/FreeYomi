@@ -162,6 +162,12 @@ jobs:
           grep -E "FYJVM-RESULT" sim.log | head -3 | sed 's/^/::notice title=resultado::/'
           DATA=$(xcrun simctl get_app_container "$UDID" io.github.freeyomi.jvmprobe data 2>/dev/null || true)
           LOG=$(ls "$HOME/fyjvm.log" 2>/dev/null || find "${DATA:-/nonexistent}" -name fyjvm.log 2>/dev/null | head -1)
+          HSERR=$(find /Users/runner/Library/Developer/CoreSimulator/Devices/"$UDID"/data/Containers/Data/Application -name 'hs_err_pid*.log' 2>/dev/null | head -1)
+          if [ -n "$HSERR" ]; then
+            grep -E "^#|siginfo|Problematic|^Current thread|^Stack:|^[VCJjv] |^Native frames|Java frames|^Register|pc=|SIG" "$HSERR" | head -45 | sed 's/^/::warning title=hs_err::/'
+            sed -n '/^Native frames/,/^$/p' "$HSERR" | head -30 | sed 's/^/::warning title=hs_err pilha::/'
+            sed -n '/^Java frames/,/^$/p' "$HSERR" | head -20 | sed 's/^/::warning title=hs_err java::/'
+          fi
           if [ -n "$LOG" ]; then grep -v "^\s*$" "$LOG" | head -40 | sed 's/^/::notice title=saída da JVM::/'; else echo "::warning title=saída da JVM::fyjvm.log não encontrado"; fi
           if [ "$status" -ne 0 ]; then
             grep -E "Test Case|XCTAssert|error -|: error|Undefined symbols|crash|Crash|Fatal|fatal|SIG|abort|unexpected exit|Error occurred|Exception|JNI|# |Restarting" sim.log | grep -v "ld: warning" | sort -u | head -40 | sed 's/^/::error title=simulador::/'
