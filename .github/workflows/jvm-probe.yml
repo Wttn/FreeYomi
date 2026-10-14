@@ -68,6 +68,15 @@ jobs:
           # Cabeçalhos JNI e JAVA_HOME (as classes são iguais nos dois SDKs).
           SRC=$(ls -d jvm/iphonesimulator jvm/iphoneos 2>/dev/null | head -1)
           cp -R "$SRC/include" jvm/include
+          if [ -z "$(find jvm/include -name jni_md.h)" ]; then
+            # jni_md.h padrão do OpenJDK para Unix (tipos e visibilidade).
+            printf '%s\n' '#ifndef _JAVASOFT_JNI_MD_H_' '#define _JAVASOFT_JNI_MD_H_' \
+              '#define JNIEXPORT __attribute__((visibility("default")))' '#define JNIIMPORT __attribute__((visibility("default")))' \
+              '#define JNICALL' 'typedef int jint;' '#ifdef _LP64' 'typedef long jlong;' '#else' 'typedef long long jlong;' '#endif' \
+              'typedef signed char jbyte;' '#endif' > jvm/include/jni_md.h
+            echo "::notice title=jni_md.h::gerado (não veio no artefato)"
+          fi
+          find jvm/include -name '*.h' | sed 's/^/::notice title=headers::/' | head -20
           if [ -d "$SRC/javahome" ]; then cp -R "$SRC/javahome/." Resources/lib/; fi
           ls -la Resources/lib Resources/lib/lib 2>/dev/null | head -20
           test -f Resources/lib/lib/modules && echo "::notice title=modules::lib/modules presente" || echo "::warning title=modules::sem lib/modules (a JVM não vai iniciar)"
@@ -85,7 +94,7 @@ jobs:
           }
           FFI_DEV=$(dirname "$(find ../../../probe-jvm -name 'libffi*.a' 2>/dev/null | head -1)" 2>/dev/null || true)
           {
-            echo "HEADER_SEARCH_PATHS = \$(inherited) \$(SRCROOT)/jvm/include"
+            echo "HEADER_SEARCH_PATHS = \$(inherited) \$(SRCROOT)/jvm/include/**"
             echo "OTHER_LDFLAGS[sdk=iphoneos*] = \$(inherited) $(libs iphoneos) -lz -lc++ -lffi -framework Foundation -framework CoreFoundation -framework Security -framework CFNetwork -framework SystemConfiguration"
             echo "OTHER_LDFLAGS[sdk=iphonesimulator*] = \$(inherited) $(libs iphonesimulator) -lz -lc++ -lffi -framework Foundation -framework CoreFoundation -framework Security -framework CFNetwork -framework SystemConfiguration"
             echo "LIBRARY_SEARCH_PATHS[sdk=iphoneos*] = \$(inherited) \$(SRCROOT)/jvm/ffi/iphoneos"
@@ -120,6 +129,23 @@ jobs:
             exit 1
           fi
           echo "::notice title=aparelho::JVMProbe ligou com a JVM para iOS (arm64)"
+
+      - name: Executar no Mac (app de iPad em Apple Silicon)
+        working-directory: prototype/jvm/probe
+        run: |
+          # O runner é Apple Silicon: o binário arm64 de iPhone roda no macOS ("Designed for iPad").
+          # Assim a JVM do aparelho é executada de verdade no CI, sem precisar de um build para o simulador.
+          if [ ! -d jvm/iphoneos ]; then exit 0; fi
+          status=0
+          xcodebuild test -project JVMProbe.xcodeproj -scheme JVMProbe \
+            -destination "platform=macOS,arch=arm64,variant=Designed for iPad" \
+            CODE_SIGN_IDENTITY=- CODE_SIGNING_REQUIRED=NO DEVELOPMENT_TEAM= > mac.log 2>&1 || status=$?
+          grep -E "FYJVM-RESULT" mac.log | head -3 | sed 's/^/::notice title=resultado (Mac)::/'
+          if [ "$status" -ne 0 ]; then
+            grep -E "error:|Undefined symbols|referenced from|duplicate symbol|failed|crash|Fatal|SIG|Exception|Error occurred" mac.log | sort -u | head -40 | sed 's/^/::error title=Mac::/'
+            tail -100 mac.log
+            exit "$status"
+          fi
 
       - name: Testar no simulador
         working-directory: prototype/jvm/probe

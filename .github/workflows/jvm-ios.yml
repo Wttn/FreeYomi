@@ -74,18 +74,25 @@ jobs:
           CUPS=$(find "$SUPPORT" -maxdepth 2 -type d -name 'cups-*' | head -1)
           echo "libffi include=$FFI lib=$FFILIB cups=$CUPS"
           SDK=$(xcrun --sdk ${{ matrix.sdk }} --show-sdk-path)
-          EXTRA=""
+          EXTRA=()
           if [ "${{ matrix.sdk }}" = iphonesimulator ]; then
-            EXTRA="--with-extra-cflags=-target arm64-apple-ios17.0-simulator --with-extra-cxxflags=-target arm64-apple-ios17.0-simulator --with-extra-ldflags=-target arm64-apple-ios17.0-simulator"
+            T="-target arm64-apple-ios17.0-simulator"
+            EXTRA=(--with-extra-cflags="$T" --with-extra-cxxflags="$T" --with-extra-ldflags="$T")
           fi
-          sh configure \
+          set -o pipefail
+          if ! sh configure \
             --disable-warnings-as-errors \
             --openjdk-target=aarch64-macos-ios \
             --with-boot-jdk="$JAVA_HOME" \
             --with-libffi-include="$FFI" \
             --with-libffi-lib="$FFILIB" \
             --with-cups-include="$CUPS" \
-            --with-sysroot="$SDK" $EXTRA 2>&1 | tail -60
+            --with-sysroot="$SDK" "${EXTRA[@]}" > configure.log 2>&1; then
+            grep -iE "error|checking for .*no$|cannot" configure.log | tail -25 | sed 's/^/::error title=configure::/'
+            tail -40 configure.log
+            exit 1
+          fi
+          tail -40 configure.log
 
       - name: Compilar biblioteca estática (static-libs-image)
         working-directory: mobile
