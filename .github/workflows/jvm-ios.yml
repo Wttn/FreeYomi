@@ -90,16 +90,25 @@ jobs:
       - name: Compilar biblioteca estática (static-libs-image)
         working-directory: mobile
         run: |
-          set -o pipefail
-          make CONF=ios-aarch64-zero-release static-libs-image 2>&1 | tail -150
+          if ! make CONF=ios-aarch64-zero-release static-libs-image > build-libs.log 2>&1; then
+            grep -E "error:|Error [0-9]|undefined|No such file" build-libs.log | sort -u | head -40 | sed 's/^/::error title=static-libs::/'
+            tail -120 build-libs.log
+            exit 1
+          fi
+          tail -20 build-libs.log
 
-      - name: Compilar imagem com as classes (static-jdk-image, tentativa)
+      - name: Compilar imagem com as classes (jdk-image, para lib/modules)
         id: jdkimage
         continue-on-error: true
         working-directory: mobile
         run: |
-          set -o pipefail
-          make CONF=ios-aarch64-zero-release static-jdk-image 2>&1 | tail -80
+          if ! make CONF=ios-aarch64-zero-release jdk-image > build-image.log 2>&1; then
+            grep -E "error:|Error [0-9]|undefined|No such file" build-image.log | sort -u | head -40 | sed 's/^/::warning title=jdk-image::/'
+            tail -80 build-image.log
+            exit 1
+          fi
+          tail -20 build-image.log
+          ls -la build/ios-aarch64-zero-release/images/jdk/lib/modules | sed 's/^/::notice title=modules::/' || true
 
       - name: Inventário
         working-directory: mobile/build/ios-aarch64-zero-release/images
@@ -118,7 +127,13 @@ jobs:
           cd mobile/build/ios-aarch64-zero-release/images
           INC=$GITHUB_WORKSPACE/mobile/build/ios-aarch64-zero-release/support/modules_include/java.base
           mkdir -p include && cp -R "$INC"/* include/ 2>/dev/null || cp $GITHUB_WORKSPACE/mobile/src/java.base/share/native/include/*.h $GITHUB_WORKSPACE/mobile/src/java.base/unix/native/include/*.h include/
-          tar -czf "$GITHUB_WORKSPACE/openjdk-${{ matrix.sdk }}-zero.tgz" include $(ls -d static-libs static-jdk 2>/dev/null)
+          # JAVA_HOME para o app: classes (lib/modules), configuração e dados, sem executáveis.
+          mkdir -p javahome
+          if [ -d jdk ]; then
+            (cd jdk && tar -cf - conf lib --exclude='*.dylib' --exclude='lib/server' --exclude='lib/zero' --exclude='lib/jspawnhelper' --exclude='lib/src.zip' --exclude='*.a') | (cd javahome && tar -xf -)
+          fi
+          du -sh javahome | sed 's/^/::notice title=javahome::/'
+          tar -czf "$GITHUB_WORKSPACE/openjdk-${{ matrix.sdk }}-zero.tgz" include static-libs javahome
           ls -la "$GITHUB_WORKSPACE/openjdk-${{ matrix.sdk }}-zero.tgz"
 
       - name: Publicar artefato
