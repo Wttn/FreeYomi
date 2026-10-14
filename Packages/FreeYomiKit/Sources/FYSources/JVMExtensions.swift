@@ -449,7 +449,7 @@ public struct JVMExtensionInstaller: Sendable {
 /// Carrega cada .jar na JVM uma única vez, sob demanda (a JVM só inicia
 /// quando o usuário abre uma fonte dessas extensões).
 public actor JVMExtensionLoader {
-    public let installer: JVMExtensionInstaller
+    public nonisolated let installer: JVMExtensionInstaller
     private var loads: [String: Task<Void, Error>] = [:]
 
     public init(installer: JVMExtensionInstaller) {
