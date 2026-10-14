@@ -1,0 +1,150 @@
+Command line invocation:
+    /Applications/Xcode_26.6.app/Contents/Developer/usr/bin/xcodebuild build -project JVMProbe.xcodeproj -scheme JVMProbe -configuration Debug -destination generic/platform=iOS CODE_SIGNING_ALLOWED=NO
+
+Build settings from command line:
+    CODE_SIGNING_ALLOWED = NO
+
+ComputePackagePrebuildTargetDependencyGraph
+
+Prepare packages
+
+CreateBuildRequest
+
+SendProjectDescription
+
+CreateBuildOperation
+
+ComputeTargetDependencyGraph
+note: Building targets in dependency order
+note: Target dependency graph (1 target)
+    Target 'JVMProbe' in project 'JVMProbe' (no dependencies)
+
+GatherProvisioningInputs
+
+CreateBuildDescription
+
+ExecuteExternalTool /Applications/Xcode_26.6.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -v -E -dM -arch arm64 -isysroot /Applications/Xcode_26.6.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk -x c -c /dev/null
+
+ExecuteExternalTool /Applications/Xcode_26.6.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -v -E -dM -isysroot /Applications/Xcode_26.6.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk -x c -c /dev/null
+
+ExecuteExternalTool /Applications/Xcode_26.6.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -v -E -dM -arch arm64 -isysroot /Applications/Xcode_26.6.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk -x c++ -c /dev/null
+
+ExecuteExternalTool /Applications/Xcode_26.6.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc --version
+
+ExecuteExternalTool /Applications/Xcode_26.6.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ld -version_details
+
+Build description signature: d2130c1c072b4ca5219a21e57be317f7
+Build description path: /Users/runner/Library/Developer/Xcode/DerivedData/JVMProbe-bdkojzkbsuchaseuyfockgrokujn/Build/Intermediates.noindex/XCBuildData/d2130c1c072b4ca5219a21e57be317f7.xcbuilddata
+CreateBuildDirectory /Users/runner/Library/Developer/Xcode/DerivedData/JVMProbe-bdkojzkbsuchaseuyfockgrokujn/Build/Products
+    cd /Users/runner/work/FreeYomi/FreeYomi/prototype/jvm/probe/JVMProbe.xcodeproj
+    builtin-create-build-directory /Users/runner/Library/Developer/Xcode/DerivedData/JVMProbe-bdkojzkbsuchaseuyfockgrokujn/Build/Products
+
+ClangStatCache /Applications/Xcode_26.6.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang-stat-cache /Applications/Xcode_26.6.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk /Users/runner/Library/Developer/Xcode/DerivedData/SDKStatCaches.noindex/iphoneos26.5-23F81a-688ef53f1462e2c8f657fdc38a81448fee66e23052a0157c865c76b268046726.sdkstatcache
+    cd /Users/runner/work/FreeYomi/FreeYomi/prototype/jvm/probe/JVMProbe.xcodeproj
+    /Applications/Xcode_26.6.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang-stat-cache /Applications/Xcode_26.6.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk -o /Users/runner/Library/Developer/Xcode/DerivedData/SDKStatCaches.noindex/iphoneos26.5-23F81a-688ef53f1462e2c8f657fdc38a81448fee66e23052a0157c865c76b268046726.sdkstatcache
+
+CreateBuildDirectory /Users/runner/Library/Developer/Xcode/DerivedData/JVMProbe-bdkojzkbsuchaseuyfockgrokujn/Build/Intermediates.noindex
+    cd /Users/runner/work/FreeYomi/FreeYomi/prototype/jvm/probe/JVMProbe.xcodeproj
+    builtin-create-build-directory /Users/runner/Library/Developer/Xcode/DerivedData/JVMProbe-bdkojzkbsuchaseuyfockgrokujn/Build/Intermediates.noindex
+
+CreateBuildDirectory /Users/runner/Library/Developer/Xcode/DerivedData/JVMProbe-bdkojzkbsuchaseuyfockgrokujn/Build/Products/Debug-iphoneos
+    cd /Users/runner/work/FreeYomi/FreeYomi/prototype/jvm/probe/JVMProbe.xcodeproj
+    builtin-create-build-directory /Users/runner/Library/Developer/Xcode/DerivedData/JVMProbe-bdkojzkbsuchaseuyfockgrokujn/Build/Products/Debug-iphoneos
+
+WriteAuxiliaryFile /Users/runner/Library/Developer/Xcode/DerivedData/JVMProbe-bdkojzkbsuchaseuyfockgrokujn/Build/Intermediates.noindex/JVMProbe.build/Debug-iphoneos/JVMProbe-99709f5703be964ad00eb20fcf4486c2-VFS-iphoneos/all-product-headers.yaml
+    cd /Users/runner/work/FreeYomi/FreeYomi/prototype/jvm/probe/JVMProbe.xcodeproj
+    write-file /Users/runner/Library/Developer/Xcode/DerivedData/JVMProbe-bdkojzkbsuchaseuyfockgrokujn/Build/Intermediates.noindex/JVMProbe.build/Debug-iphoneos/JVMProbe-99709f5703be964ad00eb20fcf4486c2-VFS-iphoneos/all-product-headers.yaml
+
+CreateBuildDirectory /Users/runner/Library/Developer/Xcode/DerivedData/JVMProbe-bdkojzkbsuchaseuyfockgrokujn/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules
+    cd /Users/runner/work/FreeYomi/FreeYomi/prototype/jvm/probe/JVMProbe.xcodeproj
+    builtin-create-build-directory /Users/runner/Library/Developer/Xcode/DerivedData/JVMProbe-bdkojzkbsuchaseuyfockgrokujn/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules
+
+CreateBuildDirectory /Users/runner/Library/Developer/Xcode/DerivedData/JVMProbe-bdkojzkbsuchaseuyfockgrokujn/Build/Intermediates.noindex/ExplicitPrecompiledModules
+    cd /Users/runner/work/FreeYomi/FreeYomi/prototype/jvm/probe/JVMProbe.xcodeproj
+    builtin-create-build-directory /Users/runner/Library/Developer/Xcode/DerivedData/JVMProbe-bdkojzkbsuchaseuyfockgrokujn/Build/Intermediates.noindex/ExplicitPrecompiledModules
+
+CreateBuildDirectory /Users/runner/Library/Developer/Xcode/DerivedData/JVMProbe-bdkojzkbsuchaseuyfockgrokujn/Build/Intermediates.noindex/EagerLinkingTBDs/Debug-iphoneos
+    cd /Users/runner/work/FreeYomi/FreeYomi/prototype/jvm/probe/JVMProbe.xcodeproj
+    builtin-create-build-directory /Users/runner/Library/Developer/Xcode/DerivedData/JVMProbe-bdkojzkbsuchaseuyfockgrokujn/Build/Intermediates.noindex/EagerLinkingTBDs/Debug-iphoneos
+
+WriteAuxiliaryFile /Users/runner/Library/Developer/Xcode/DerivedData/JVMProbe-bdkojzkbsuchaseuyfockgrokujn/Build/Intermediates.noindex/JVMProbe.build/Debug-iphoneos/JVMProbe.build/empty-JVMProbe.plist (in target 'JVMProbe' from project 'JVMProbe')
+    cd /Users/runner/work/FreeYomi/FreeYomi/prototype/jvm/probe
+    write-file /Users/runner/Library/Developer/Xcode/DerivedData/JVMProbe-bdkojzkbsuchaseuyfockgrokujn/Build/Intermediates.noindex/JVMProbe.build/Debug-iphoneos/JVMProbe.build/empty-JVMProbe.plist
+
+WriteAuxiliaryFile /Users/runner/Library/Developer/Xcode/DerivedData/JVMProbe-bdkojzkbsuchaseuyfockgrokujn/Build/Intermediates.noindex/JVMProbe.build/Debug-iphoneos/JVMProbe.build/Objects-normal/arm64/JVMProbe_const_extract_protocols.json (in target 'JVMProbe' from project 'JVMProbe')
+    cd /Users/runner/work/FreeYomi/FreeYomi/prototype/jvm/probe
+    write-file /Users/runner/Library/Developer/Xcode/DerivedData/JVMProbe-bdkojzkbsuchaseuyfockgrokujn/Build/Intermediates.noindex/JVMProbe.build/Debug-iphoneos/JVMProbe.build/Objects-normal/arm64/JVMProbe_const_extract_protocols.json
+
+WriteAuxiliaryFile /Users/runner/Library/Developer/Xcode/DerivedData/JVMProbe-bdkojzkbsuchaseuyfockgrokujn/Build/Intermediates.noindex/JVMProbe.build/Debug-iphoneos/JVMProbe.build/Objects-normal/arm64/JVMProbe.SwiftFileList (in target 'JVMProbe' from project 'JVMProbe')
+    cd /Users/runner/work/FreeYomi/FreeYomi/prototype/jvm/probe
+    write-file /Users/runner/Library/Developer/Xcode/DerivedData/JVMProbe-bdkojzkbsuchaseuyfockgrokujn/Build/Intermediates.noindex/JVMProbe.build/Debug-iphoneos/JVMProbe.build/Objects-normal/arm64/JVMProbe.SwiftFileList
+
+WriteAuxiliaryFile /Users/runner/Library/Developer/Xcode/DerivedData/JVMProbe-bdkojzkbsuchaseuyfockgrokujn/Build/Intermediates.noindex/JVMProbe.build/Debug-iphoneos/JVMProbe.build/Objects-normal/arm64/JVMProbe.SwiftConstValuesFileList (in target 'JVMProbe' from project 'JVMProbe')
+    cd /Users/runner/work/FreeYomi/FreeYomi/prototype/jvm/probe
+    write-file /Users/runner/Library/Developer/Xcode/DerivedData/JVMProbe-bdkojzkbsuchaseuyfockgrokujn/Build/Intermediates.noindex/JVMProbe.build/Debug-iphoneos/JVMProbe.build/Objects-normal/arm64/JVMProbe.SwiftConstValuesFileList
+
+WriteAuxiliaryFile /Users/runner/Library/Developer/Xcode/DerivedData/JVMProbe-bdkojzkbsuchaseuyfockgrokujn/Build/Intermediates.noindex/JVMProbe.build/Debug-iphoneos/JVMProbe.build/Objects-normal/arm64/JVMProbe.LinkFileList (in target 'JVMProbe' from project 'JVMProbe')
+    cd /Users/runner/work/FreeYomi/FreeYomi/prototype/jvm/probe
+    write-file /Users/runner/Library/Developer/Xcode/DerivedData/JVMProbe-bdkojzkbsuchaseuyfockgrokujn/Build/Intermediates.noindex/JVMProbe.build/Debug-iphoneos/JVMProbe.build/Objects-normal/arm64/JVMProbe.LinkFileList
+
+WriteAuxiliaryFile /Users/runner/Library/Developer/Xcode/DerivedData/JVMProbe-bdkojzkbsuchaseuyfockgrokujn/Build/Intermediates.noindex/JVMProbe.build/Debug-iphoneos/JVMProbe.build/Objects-normal/arm64/JVMProbe-OutputFileMap.json (in target 'JVMProbe' from project 'JVMProbe')
+    cd /Users/runner/work/FreeYomi/FreeYomi/prototype/jvm/probe
+    write-file /Users/runner/Library/Developer/Xcode/DerivedData/JVMProbe-bdkojzkbsuchaseuyfockgrokujn/Build/Intermediates.noindex/JVMProbe.build/Debug-iphoneos/JVMProbe.build/Objects-normal/arm64/JVMProbe-OutputFileMap.json
+
+WriteAuxiliaryFile /Users/runner/Library/Developer/Xcode/DerivedData/JVMProbe-bdkojzkbsuchaseuyfockgrokujn/Build/Intermediates.noindex/JVMProbe.build/Debug-iphoneos/JVMProbe.build/Objects-normal/arm64/82b82416624d2658e5098eb0a28c15c5-common-args.resp (in target 'JVMProbe' from project 'JVMProbe')
+    cd /Users/runner/work/FreeYomi/FreeYomi/prototype/jvm/probe
+    write-file /Users/runner/Library/Developer/Xcode/DerivedData/JVMProbe-bdkojzkbsuchaseuyfockgrokujn/Build/Intermediates.noindex/JVMProbe.build/Debug-iphoneos/JVMProbe.build/Objects-normal/arm64/82b82416624d2658e5098eb0a28c15c5-common-args.resp
+'-std=gnu++14' '-stdlib=libc++' -fmodules -fno-cxx-modules -gmodules '-fmodules-cache-path=/Users/runner/Library/Developer/Xcode/DerivedData/ModuleCache.noindex' '-D_LIBCPP_HARDENING_MODE=_LIBCPP_HARDENING_MODE_DEBUG' -fpascal-strings -O0 -fno-common '-DDEBUG=1' -g -fvisibility-inlines-hidden -iquote /Users/runner/Library/Developer/Xcode/DerivedData/JVMProbe-bdkojzkbsuchaseuyfockgrokujn/Build/Intermediates.noindex/JVMProbe.build/Debug-iphoneos/JVMProbe.build/JVMProbe-generated-files.hmap -I/Users/runner/Library/Developer/Xcode/DerivedData/JVMProbe-bdkojzkbsuchaseuyfockgrokujn/Build/Intermediates.noindex/JVMProbe.build/Debug-iphoneos/JVMProbe.build/JVMProbe-own-target-headers.hmap -I/Users/runner/Library/Developer/Xcode/DerivedData/JVMProbe-bdkojzkbsuchaseuyfockgrokujn/Build/Intermediates.noindex/JVMProbe.build/Debug-iphoneos/JVMProbe.build/JVMProbe-all-target-headers.hmap -iquote /Users/runner/Library/Developer/Xcode/DerivedData/JVMProbe-bdkojzkbsuchaseuyfockgrokujn/Build/Intermediates.noindex/JVMProbe.build/Debug-iphoneos/JVMProbe.build/JVMProbe-project-headers.hmap -I/Users/runner/Library/Developer/Xcode/DerivedData/JVMProbe-bdkojzkbsuchaseuyfockgrokujn/Build/Products/Debug-iphoneos/include -Ijvm/include -Ijvm/include/ios -I/Users/runner/Library/Developer/Xcode/DerivedData/JVMProbe-bdkojzkbsuchaseuyfockgrokujn/Build/Intermediates.noindex/JVMProbe.build/Debug-iphoneos/JVMProbe.build/DerivedSources-normal/arm64 -I/Users/runner/Library/Developer/Xcode/DerivedData/JVMProbe-bdkojzkbsuchaseuyfockgrokujn/Build/Intermediates.noindex/JVMProbe.build/Debug-iphoneos/JVMProbe.build/DerivedSources/arm64 -I/Users/runner/Library/Developer/Xcode/DerivedData/JVMProbe-bdkojzkbsuchaseuyfockgrokujn/Build/Intermediates.noindex/JVMProbe.build/Debug-iphoneos/JVMProbe.build/DerivedSources -F/Users/runner/Library/Developer/Xcode/DerivedData/JVMProbe-bdkojzkbsuchaseuyfockgrokujn/Build/Products/Debug-iphoneos
+
+WriteAuxiliaryFile /Users/runner/Library/Developer/Xcode/DerivedData/JVMProbe-bdkojzkbsuchaseuyfockgrokujn/Build/Intermediates.noindex/JVMProbe.build/Debug-iphoneos/JVMProbe.build/Objects-normal/arm64/7187679823f38a2a940e0043cdf9d637-common-args.resp (in target 'JVMProbe' from project 'JVMProbe')
+    cd /Users/runner/work/FreeYomi/FreeYomi/prototype/jvm/probe
+    write-file /Users/runner/Library/Developer/Xcode/DerivedData/JVMProbe-bdkojzkbsuchaseuyfockgrokujn/Build/Intermediates.noindex/JVMProbe.build/Debug-iphoneos/JVMProbe.build/Objects-normal/arm64/7187679823f38a2a940e0043cdf9d637-common-args.resp
+'-std=gnu11' -fmodules -gmodules '-fmodules-cache-path=/Users/runner/Library/Developer/Xcode/DerivedData/ModuleCache.noindex' -fpascal-strings -O0 -fno-common '-DDEBUG=1' -g -iquote /Users/runner/Library/Developer/Xcode/DerivedData/JVMProbe-bdkojzkbsuchaseuyfockgrokujn/Build/Intermediates.noindex/JVMProbe.build/Debug-iphoneos/JVMProbe.build/JVMProbe-generated-files.hmap -I/Users/runner/Library/Developer/Xcode/DerivedData/JVMProbe-bdkojzkbsuchaseuyfockgrokujn/Build/Intermediates.noindex/JVMProbe.build/Debug-iphoneos/JVMProbe.build/JVMProbe-own-target-headers.hmap -I/Users/runner/Library/Developer/Xcode/DerivedData/JVMProbe-bdkojzkbsuchaseuyfockgrokujn/Build/Intermediates.noindex/JVMProbe.build/Debug-iphoneos/JVMProbe.build/JVMProbe-all-target-headers.hmap -iquote /Users/runner/Library/Developer/Xcode/DerivedData/JVMProbe-bdkojzkbsuchaseuyfockgrokujn/Build/Intermediates.noindex/JVMProbe.build/Debug-iphoneos/JVMProbe.build/JVMProbe-project-headers.hmap -I/Users/runner/Library/Developer/Xcode/DerivedData/JVMProbe-bdkojzkbsuchaseuyfockgrokujn/Build/Products/Debug-iphoneos/include -Ijvm/include -Ijvm/include/ios -I/Users/runner/Library/Developer/Xcode/DerivedData/JVMProbe-bdkojzkbsuchaseuyfockgrokujn/Build/Intermediates.noindex/JVMProbe.build/Debug-iphoneos/JVMProbe.build/DerivedSources-normal/arm64 -I/Users/runner/Library/Developer/Xcode/DerivedData/JVMProbe-bdkojzkbsuchaseuyfockgrokujn/Build/Intermediates.noindex/JVMProbe.build/Debug-iphoneos/JVMProbe.build/DerivedSources/arm64 -I/Users/runner/Library/Developer/Xcode/DerivedData/JVMProbe-bdkojzkbsuchaseuyfockgrokujn/Build/Intermediates.noindex/JVMProbe.build/Debug-iphoneos/JVMProbe.build/DerivedSources -F/Users/runner/Library/Developer/Xcode/DerivedData/JVMProbe-bdkojzkbsuchaseuyfockgrokujn/Build/Products/Debug-iphoneos
+
+WriteAuxiliaryFile /Users/runner/Library/Developer/Xcode/DerivedData/JVMProbe-bdkojzkbsuchaseuyfockgrokujn/Build/Intermediates.noindex/JVMProbe.build/Debug-iphoneos/JVMProbe.build/JVMProbe.hmap (in target 'JVMProbe' from project 'JVMProbe')
+    cd /Users/runner/work/FreeYomi/FreeYomi/prototype/jvm/probe
+    write-file /Users/runner/Library/Developer/Xcode/DerivedData/JVMProbe-bdkojzkbsuchaseuyfockgrokujn/Build/Intermediates.noindex/JVMProbe.build/Debug-iphoneos/JVMProbe.build/JVMProbe.hmap
+
+WriteAuxiliaryFile /Users/runner/Library/Developer/Xcode/DerivedData/JVMProbe-bdkojzkbsuchaseuyfockgrokujn/Build/Intermediates.noindex/JVMProbe.build/Debug-iphoneos/JVMProbe.build/JVMProbe.DependencyStaticMetadataFileList (in target 'JVMProbe' from project 'JVMProbe')
+    cd /Users/runner/work/FreeYomi/FreeYomi/prototype/jvm/probe
+    write-file /Users/runner/Library/Developer/Xcode/DerivedData/JVMProbe-bdkojzkbsuchaseuyfockgrokujn/Build/Intermediates.noindex/JVMProbe.build/Debug-iphoneos/JVMProbe.build/JVMProbe.DependencyStaticMetadataFileList
+
+WriteAuxiliaryFile /Users/runner/Library/Developer/Xcode/DerivedData/JVMProbe-bdkojzkbsuchaseuyfockgrokujn/Build/Intermediates.noindex/JVMProbe.build/Debug-iphoneos/JVMProbe.build/JVMProbe.DependencyMetadataFileList (in target 'JVMProbe' from project 'JVMProbe')
+    cd /Users/runner/work/FreeYomi/FreeYomi/prototype/jvm/probe
+    write-file /Users/runner/Library/Developer/Xcode/DerivedData/JVMProbe-bdkojzkbsuchaseuyfockgrokujn/Build/Intermediates.noindex/JVMProbe.build/Debug-iphoneos/JVMProbe.build/JVMProbe.DependencyMetadataFileList
+
+WriteAuxiliaryFile /Users/runner/Library/Developer/Xcode/DerivedData/JVMProbe-bdkojzkbsuchaseuyfockgrokujn/Build/Intermediates.noindex/JVMProbe.build/Debug-iphoneos/JVMProbe.build/JVMProbe-project-headers.hmap (in target 'JVMProbe' from project 'JVMProbe')
+    cd /Users/runner/work/FreeYomi/FreeYomi/prototype/jvm/probe
+    write-file /Users/runner/Library/Developer/Xcode/DerivedData/JVMProbe-bdkojzkbsuchaseuyfockgrokujn/Build/Intermediates.noindex/JVMProbe.build/Debug-iphoneos/JVMProbe.build/JVMProbe-project-headers.hmap
+
+WriteAuxiliaryFile /Users/runner/Library/Developer/Xcode/DerivedData/JVMProbe-bdkojzkbsuchaseuyfockgrokujn/Build/Intermediates.noindex/JVMProbe.build/Debug-iphoneos/JVMProbe.build/JVMProbe-own-target-headers.hmap (in target 'JVMProbe' from project 'JVMProbe')
+    cd /Users/runner/work/FreeYomi/FreeYomi/prototype/jvm/probe
+    write-file /Users/runner/Library/Developer/Xcode/DerivedData/JVMProbe-bdkojzkbsuchaseuyfockgrokujn/Build/Intermediates.noindex/JVMProbe.build/Debug-iphoneos/JVMProbe.build/JVMProbe-own-target-headers.hmap
+
+WriteAuxiliaryFile /Users/runner/Library/Developer/Xcode/DerivedData/JVMProbe-bdkojzkbsuchaseuyfockgrokujn/Build/Intermediates.noindex/JVMProbe.build/Debug-iphoneos/JVMProbe.build/JVMProbe-generated-files.hmap (in target 'JVMProbe' from project 'JVMProbe')
+    cd /Users/runner/work/FreeYomi/FreeYomi/prototype/jvm/probe
+    write-file /Users/runner/Library/Developer/Xcode/DerivedData/JVMProbe-bdkojzkbsuchaseuyfockgrokujn/Build/Intermediates.noindex/JVMProbe.build/Debug-iphoneos/JVMProbe.build/JVMProbe-generated-files.hmap
+
+WriteAuxiliaryFile /Users/runner/Library/Developer/Xcode/DerivedData/JVMProbe-bdkojzkbsuchaseuyfockgrokujn/Build/Intermediates.noindex/JVMProbe.build/Debug-iphoneos/JVMProbe.build/JVMProbe-all-target-headers.hmap (in target 'JVMProbe' from project 'JVMProbe')
+    cd /Users/runner/work/FreeYomi/FreeYomi/prototype/jvm/probe
+    write-file /Users/runner/Library/Developer/Xcode/DerivedData/JVMProbe-bdkojzkbsuchaseuyfockgrokujn/Build/Intermediates.noindex/JVMProbe.build/Debug-iphoneos/JVMProbe.build/JVMProbe-all-target-headers.hmap
+
+WriteAuxiliaryFile /Users/runner/Library/Developer/Xcode/DerivedData/JVMProbe-bdkojzkbsuchaseuyfockgrokujn/Build/Intermediates.noindex/JVMProbe.build/Debug-iphoneos/JVMProbe.build/JVMProbe-all-non-framework-target-headers.hmap (in target 'JVMProbe' from project 'JVMProbe')
+    cd /Users/runner/work/FreeYomi/FreeYomi/prototype/jvm/probe
+    write-file /Users/runner/Library/Developer/Xcode/DerivedData/JVMProbe-bdkojzkbsuchaseuyfockgrokujn/Build/Intermediates.noindex/JVMProbe.build/Debug-iphoneos/JVMProbe.build/JVMProbe-all-non-framework-target-headers.hmap
+
+MkDir /Users/runner/Library/Developer/Xcode/DerivedData/JVMProbe-bdkojzkbsuchaseuyfockgrokujn/Build/Products/Debug-iphoneos/JVMProbe.app (in target 'JVMProbe' from project 'JVMProbe')
+    cd /Users/runner/work/FreeYomi/FreeYomi/prototype/jvm/probe
+    /bin/mkdir -p /Users/runner/Library/Developer/Xcode/DerivedData/JVMProbe-bdkojzkbsuchaseuyfockgrokujn/Build/Products/Debug-iphoneos/JVMProbe.app
+
+ProcessInfoPlistFile /Users/runner/Library/Developer/Xcode/DerivedData/JVMProbe-bdkojzkbsuchaseuyfockgrokujn/Build/Products/Debug-iphoneos/JVMProbe.app/Info.plist /Users/runner/Library/Developer/Xcode/DerivedData/JVMProbe-bdkojzkbsuchaseuyfockgrokujn/Build/Intermediates.noindex/JVMProbe.build/Debug-iphoneos/JVMProbe.build/empty-JVMProbe.plist (in target 'JVMProbe' from project 'JVMProbe')
+    cd /Users/runner/work/FreeYomi/FreeYomi/prototype/jvm/probe
+    builtin-infoPlistUtility /Users/runner/Library/Developer/Xcode/DerivedData/JVMProbe-bdkojzkbsuchaseuyfockgrokujn/Build/Intermediates.noindex/JVMProbe.build/Debug-iphoneos/JVMProbe.build/empty-JVMProbe.plist -producttype com.apple.product-type.application -genpkginfo /Users/runner/Library/Developer/Xcode/DerivedData/JVMProbe-bdkojzkbsuchaseuyfockgrokujn/Build/Products/Debug-iphoneos/JVMProbe.app/PkgInfo -expandbuildsettings -format binary -platform iphoneos -requiredArchitecture arm64 -o /Users/runner/Library/Developer/Xcode/DerivedData/JVMProbe-bdkojzkbsuchaseuyfockgrokujn/Build/Products/Debug-iphoneos/JVMProbe.app/Info.plist
+
+CpResource /Users/runner/Library/Developer/Xcode/DerivedData/JVMProbe-bdkojzkbsuchaseuyfockgrokujn/Build/Products/Debug-iphoneos/JVMProbe.app/jars /Users/runner/work/FreeYomi/FreeYomi/prototype/jvm/probe/Resources/jars (in target 'JVMProbe' from project 'JVMProbe')
+    cd /Users/runner/work/FreeYomi/FreeYomi/prototype/jvm/probe
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks /Users/runner/work/FreeYomi/FreeYomi/prototype/jvm/probe/Resources/jars /Users/runner/Library/Developer/Xcode/DerivedData/JVMProbe-bdkojzkbsuchaseuyfockgrokujn/Build/Products/Debug-iphoneos/JVMProbe.app
+
+CpResource /Users/runner/Library/Developer/Xcode/DerivedData/JVMProbe-bdkojzkbsuchaseuyfockgrokujn/Build/Products/Debug-iphoneos/JVMProbe.app/lib /Users/runner/work/FreeYomi/FreeYomi/prototype/jvm/probe/Resources/lib (in target 'JVMProbe' from project 'JVMProbe')
+    cd /Users/runner/work/FreeYomi/FreeYomi/prototype/jvm/probe
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks /Users/runner/work/FreeYomi/FreeYomi/prototype/jvm/probe/Resources/lib /Users/runner/Library/Developer/Xcode/DerivedData/JVMProbe-bdkojzkbsuchaseuyfockgrokujn/Build/Products/Debug-iphoneos/JVMProbe.app
