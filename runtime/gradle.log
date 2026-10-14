@@ -1,0 +1,217 @@
+/home/runner/work/FreeYomi/FreeYomi/server-src/AndroidCompat/src/main/java/xyz/nulldev/androidcompat/io/sharedprefs/JavaSharedPreferences.kt:189:25: Format could not fix > [standard:kdoc] A KDoc is not allowed inside 'block'
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/eu/kanade/tachiyomi/App.kt:10:1: Format could not fix > [standard:import-ordering] Imports must be ordered in lexicographic order without any empty lines in-between with "java", "javax", "kotlin" and aliases in the end -- no autocorrection due to comments in the import list
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/eu/kanade/tachiyomi/network/interceptor/FollowUpInterceptor2.kt:11:1: Format could not fix > [standard:no-wildcard-imports] Wildcard import
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/eu/kanade/tachiyomi/network/interceptor/FollowUpInterceptor2.kt:13:1: Format could not fix > [standard:no-wildcard-imports] Wildcard import
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/eu/kanade/tachiyomi/network/interceptor/FollowUpInterceptor.kt:16:1: Format could not fix > [standard:no-wildcard-imports] Wildcard import
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/eu/kanade/tachiyomi/network/interceptor/UncaughtExceptionInterceptor.kt:33:17: Format could not fix > [standard:property-naming] Property name should start with a lowercase letter and use camel case
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/eu/kanade/tachiyomi/network/interceptor/UncaughtExceptionInterceptor.kt:102:13: Format could not fix > [standard:property-naming] Property name should start with a lowercase letter and use camel case
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/eu/kanade/tachiyomi/network/interceptor/CallNativeNetInterceptor.kt:11:1: Format could not fix > [standard:no-wildcard-imports] Wildcard import
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/eu/kanade/tachiyomi/network/interceptor/McCookieInterceptor.kt:11:1: Format could not fix > [standard:no-wildcard-imports] Wildcard import
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/eu/kanade/tachiyomi/network/interceptor/McCookieInterceptor.kt:14:1: Format could not fix > [standard:no-wildcard-imports] Wildcard import
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/eu/kanade/tachiyomi/network/Requests.kt:23:5: Format could not fix > [standard:function-naming] Function name should start with a lowercase letter (except factory methods) and use camel case
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/eu/kanade/tachiyomi/network/Requests.kt:39:5: Format could not fix > [standard:function-naming] Function name should start with a lowercase letter (except factory methods) and use camel case
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/eu/kanade/tachiyomi/network/Requests.kt:52:5: Format could not fix > [standard:function-naming] Function name should start with a lowercase letter (except factory methods) and use camel case
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/eu/kanade/tachiyomi/source/SourceMeta.kt:27:13: Format could not fix > [standard:property-naming] Property name should start with a lowercase letter and use camel case
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/eu/kanade/tachiyomi/source/online/HttpSource.kt:489:13: Format could not fix > [standard:property-naming] Property name should start with a lowercase letter and use camel case
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/eu/kanade/tachiyomi/source/local/loader/RarPageLoader.kt:16:1: Format could not fix > [standard:no-wildcard-imports] Wildcard import
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/eu/kanade/tachiyomi/source/local/LocalSource.kt:499:17: Format could not fix > [standard:property-naming] Property name should start with a lowercase letter and use camel case
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/eu/kanade/tachiyomi/source/local/LocalSource.kt:500:17: Format could not fix > [standard:property-naming] Property name should start with a lowercase letter and use camel case
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/eu/kanade/tachiyomi/source/model/SMangaImpl.kt:19:18: Format could not fix > [standard:property-naming] Property name should start with a lowercase letter and use camel case
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/eu/kanade/tachiyomi/source/model/SMangaImpl.kt:31:18: Format could not fix > [standard:property-naming] Property name should start with a lowercase letter and use camel case
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/eu/kanade/tachiyomi/source/model/SChapter.kt:20:9: Format could not fix > [standard:property-naming] Property name should start with a lowercase letter and use camel case
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/eu/kanade/tachiyomi/source/model/SChapter.kt:24:9: Format could not fix > [standard:property-naming] Property name should start with a lowercase letter and use camel case
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/eu/kanade/tachiyomi/source/model/SChapterImpl.kt:19:18: Format could not fix > [standard:property-naming] Property name should start with a lowercase letter and use camel case
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/eu/kanade/tachiyomi/source/model/SChapterImpl.kt:23:18: Format could not fix > [standard:property-naming] Property name should start with a lowercase letter and use camel case
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/eu/kanade/tachiyomi/source/model/SManga.kt:20:9: Format could not fix > [standard:property-naming] Property name should start with a lowercase letter and use camel case
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/eu/kanade/tachiyomi/source/model/SManga.kt:32:9: Format could not fix > [standard:property-naming] Property name should start with a lowercase letter and use camel case
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/eu/kanade/tachiyomi/data/backup/ProtoBackupExport.kt:10:1: Format could not fix > [standard:no-wildcard-imports] Wildcard import
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/eu/kanade/tachiyomi/data/backup/ProtoBackupExport.kt:16:1: Format could not fix > [standard:no-wildcard-imports] Wildcard import
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/eu/kanade/tachiyomi/data/backup/ProtoBackupExport.kt:23:1: Format could not fix > [standard:no-wildcard-imports] Wildcard import
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/eu/kanade/tachiyomi/data/backup/ProtoBackupExport.kt:27:1: Format could not fix > [standard:no-wildcard-imports] Wildcard import
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/eu/kanade/tachiyomi/data/backup/ImporterSocket.kt:12:1: Format could not fix > [standard:no-wildcard-imports] Wildcard import
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/eu/kanade/tachiyomi/data/backup/ProtoBackupImport.kt:24:1: Format could not fix > [standard:no-wildcard-imports] Wildcard import
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/eu/kanade/tachiyomi/data/backup/ProtoBackupImport.kt:45:1: Format could not fix > [standard:no-wildcard-imports] Wildcard import
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/cloud/CloudAPI.kt:10:1: Format could not fix > [standard:no-wildcard-imports] Wildcard import
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/cloud/util/UUIDUtils.kt:10:1: Format could not fix > [standard:no-wildcard-imports] Wildcard import
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/MangaAPI.kt:17:1: Format could not fix > [standard:no-wildcard-imports] Wildcard import
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/model/dataclass/PaginatedList.kt:18:11: Format could not fix > [standard:property-naming] Property name should use the screaming snake case notation when the value can not be changed
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/model/dataclass/ChapterDataClass.kt:34:5: Format could not fix > [standard:no-consecutive-comments] a KDoc may not be preceded by an EOL comment unless separated by a blank line
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/model/table/CategoryMetaTable.kt:25:5: Format could not fix > [standard:enum-entry-name-case] Enum entry name should be uppercase underscore-separated names like "ENUM_ENTRY" or upper camel-case like "EnumEntry"
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/CategoryManga.kt:13:1: Format could not fix > [standard:no-wildcard-imports] Wildcard import
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/CategoryManga.kt:24:1: Format could not fix > [standard:no-wildcard-imports] Wildcard import
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/chapter/ChapterForRead.kt:25:1: Format could not fix > [standard:no-wildcard-imports] Wildcard import
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/chapter/ChapterForDownload.kt:19:1: Format could not fix > [standard:no-wildcard-imports] Wildcard import
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/JavaChannel.kt:10:1: Format could not fix > [standard:no-wildcard-imports] Wildcard import
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/Stats.kt:11:1: Format could not fix > [standard:no-wildcard-imports] Wildcard import
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/Stats.kt:15:1: Format could not fix > [standard:no-wildcard-imports] Wildcard import
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/Stats.kt:17:1: Format could not fix > [standard:no-wildcard-imports] Wildcard import
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/Category.kt:12:1: Format could not fix > [standard:no-wildcard-imports] Wildcard import
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/Category.kt:21:1: Format could not fix > [standard:no-wildcard-imports] Wildcard import
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/MangaList.kt:26:1: Format could not fix > [standard:no-wildcard-imports] Wildcard import
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/UserData.kt:11:1: Format could not fix > [standard:no-wildcard-imports] Wildcard import
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/Repo.kt:12:1: Format could not fix > [standard:no-wildcard-imports] Wildcard import
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/Repo.kt:20:1: Format could not fix > [standard:no-wildcard-imports] Wildcard import
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/MangaQuery.kt:12:1: Format could not fix > [standard:no-wildcard-imports] Wildcard import
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/MangaQuery.kt:19:1: Format could not fix > [standard:no-wildcard-imports] Wildcard import
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/extension/github/ExtensionGithubApi.kt:12:1: Format could not fix > [standard:no-wildcard-imports] Wildcard import
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/extension/ExtensionsList.kt:14:1: Format could not fix > [standard:no-wildcard-imports] Wildcard import
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/extension/Extension.kt:26:1: Format could not fix > [standard:no-wildcard-imports] Wildcard import
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/Migrate.kt:12:1: Format could not fix > [standard:no-wildcard-imports] Wildcard import
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/Migrate.kt:22:1: Format could not fix > [standard:no-wildcard-imports] Wildcard import
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/Chapter.kt:19:1: Format could not fix > [standard:no-wildcard-imports] Wildcard import
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/Chapter.kt:32:1: Format could not fix > [standard:no-wildcard-imports] Wildcard import
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/Chapter.kt:33:1: Format could not fix > [standard:no-wildcard-imports] Wildcard import
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/Chapter.kt:38:1: Format could not fix > [standard:no-wildcard-imports] Wildcard import
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/download/Downloader.kt:11:1: Format could not fix > [standard:no-wildcard-imports] Wildcard import
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/download/DownloadManager.kt:14:1: Format could not fix > [standard:no-wildcard-imports] Wildcard import
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/History.kt:12:1: Format could not fix > [standard:no-wildcard-imports] Wildcard import
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/History.kt:19:1: Format could not fix > [standard:no-wildcard-imports] Wildcard import
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/MangaWithChapterList.kt:11:1: Format could not fix > [standard:no-wildcard-imports] Wildcard import
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/MangaWithChapterList.kt:18:1: Format could not fix > [standard:no-wildcard-imports] Wildcard import
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/Manga.kt:23:1: Format could not fix > [standard:no-wildcard-imports] Wildcard import
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/Manga.kt:48:1: Format could not fix > [standard:no-wildcard-imports] Wildcard import
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/update/UpdateManager.kt:14:1: Format could not fix > [standard:no-wildcard-imports] Wildcard import
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/update/UpdateManager.kt:24:1: Format could not fix > [standard:no-wildcard-imports] Wildcard import
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/update/UpdaterSocket.kt:13:1: Format could not fix > [standard:no-wildcard-imports] Wildcard import
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/update/UpdateRecord.kt:11:1: Format could not fix > [standard:no-wildcard-imports] Wildcard import
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/update/Updater.kt:11:1: Format could not fix > [standard:no-wildcard-imports] Wildcard import
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/update/Updater.kt:34:19: Format could not fix > [standard:property-naming] Property name should use the screaming snake case notation when the value can not be changed
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/MangaBatch.kt:12:1: Format could not fix > [standard:no-wildcard-imports] Wildcard import
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/util/storage/OkioExtensions.kt:17:1: Format could not fix > [standard:no-consecutive-comments] a KDoc may not be preceded by an EOL comment unless separated by a blank line
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/util/source/GetCatalogueSource.kt:39:1: Format could not fix > [standard:no-wildcard-imports] Wildcard import
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/util/source/SourceConfig.kt:16:17: Format could not fix > [standard:property-naming] Property name should start with a lowercase letter and use camel case
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/util/source/SourceConfig.kt:18:17: Format could not fix > [standard:property-naming] Property name should start with a lowercase letter and use camel case
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/util/lang/io.kt:1:1: Format could not fix > [standard:filename] File name 'io.kt' should conform PascalCase
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/util/lang/RxCoroutineBridge.kt:21:1: Format could not fix > [standard:no-consecutive-comments] a block comment may not be preceded by an EOL comment unless separated by a blank line
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/util/BytecodeEditor.kt:83:23: Format could not fix > [standard:property-naming] Property name should use the screaming snake case notation when the value can not be changed
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/MangaMeta.kt:14:1: Format could not fix > [standard:no-wildcard-imports] Wildcard import
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/MangaMeta.kt:22:1: Format could not fix > [standard:no-wildcard-imports] Wildcard import
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/Library.kt:11:1: Format could not fix > [standard:no-wildcard-imports] Wildcard import
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/Download.kt:12:1: Format could not fix > [standard:no-wildcard-imports] Wildcard import
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/Download.kt:20:1: Format could not fix > [standard:no-wildcard-imports] Wildcard import
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/Browse.kt:142:9: Format could not fix > [standard:enum-entry-name-case] Enum entry name should be uppercase underscore-separated names like "ENUM_ENTRY" or upper camel-case like "EnumEntry"
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/Browse.kt:143:9: Format could not fix > [standard:enum-entry-name-case] Enum entry name should be uppercase underscore-separated names like "ENUM_ENTRY" or upper camel-case like "EnumEntry"
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/Browse.kt:144:9: Format could not fix > [standard:enum-entry-name-case] Enum entry name should be uppercase underscore-separated names like "ENUM_ENTRY" or upper camel-case like "EnumEntry"
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/Browse.kt:20:1: Format could not fix > [standard:no-wildcard-imports] Wildcard import
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/Source.kt:22:1: Format could not fix > [standard:no-wildcard-imports] Wildcard import
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/track/Track.kt:15:1: Format could not fix > [standard:no-wildcard-imports] Wildcard import
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/track/tracker/model/Track.kt:16:9: Format could not fix > [standard:property-naming] Property name should start with a lowercase letter and use camel case
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/track/tracker/model/Track.kt:18:9: Format could not fix > [standard:property-naming] Property name should start with a lowercase letter and use camel case
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/track/tracker/model/Track.kt:20:9: Format could not fix > [standard:property-naming] Property name should start with a lowercase letter and use camel case
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/track/tracker/model/Track.kt:22:9: Format could not fix > [standard:property-naming] Property name should start with a lowercase letter and use camel case
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/track/tracker/model/Track.kt:26:9: Format could not fix > [standard:property-naming] Property name should start with a lowercase letter and use camel case
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/track/tracker/model/Track.kt:28:9: Format could not fix > [standard:property-naming] Property name should start with a lowercase letter and use camel case
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/track/tracker/model/Track.kt:34:9: Format could not fix > [standard:property-naming] Property name should start with a lowercase letter and use camel case
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/track/tracker/model/Track.kt:36:9: Format could not fix > [standard:property-naming] Property name should start with a lowercase letter and use camel case
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/track/tracker/model/Track.kt:38:9: Format could not fix > [standard:property-naming] Property name should start with a lowercase letter and use camel case
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/track/tracker/model/Track.kt:40:9: Format could not fix > [standard:property-naming] Property name should start with a lowercase letter and use camel case
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/track/tracker/model/Track.kt:42:9: Format could not fix > [standard:property-naming] Property name should start with a lowercase letter and use camel case
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/track/tracker/model/TrackImpl.kt:14:18: Format could not fix > [standard:property-naming] Property name should start with a lowercase letter and use camel case
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/track/tracker/model/TrackImpl.kt:16:18: Format could not fix > [standard:property-naming] Property name should start with a lowercase letter and use camel case
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/track/tracker/model/TrackImpl.kt:18:18: Format could not fix > [standard:property-naming] Property name should start with a lowercase letter and use camel case
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/track/tracker/model/TrackImpl.kt:20:18: Format could not fix > [standard:property-naming] Property name should start with a lowercase letter and use camel case
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/track/tracker/model/TrackImpl.kt:24:18: Format could not fix > [standard:property-naming] Property name should start with a lowercase letter and use camel case
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/track/tracker/model/TrackImpl.kt:26:18: Format could not fix > [standard:property-naming] Property name should start with a lowercase letter and use camel case
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/track/tracker/model/TrackImpl.kt:32:18: Format could not fix > [standard:property-naming] Property name should start with a lowercase letter and use camel case
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/track/tracker/model/TrackImpl.kt:34:18: Format could not fix > [standard:property-naming] Property name should start with a lowercase letter and use camel case
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/track/tracker/model/TrackImpl.kt:36:18: Format could not fix > [standard:property-naming] Property name should start with a lowercase letter and use camel case
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/track/tracker/model/TrackImpl.kt:38:18: Format could not fix > [standard:property-naming] Property name should start with a lowercase letter and use camel case
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/track/tracker/model/TrackImpl.kt:40:18: Format could not fix > [standard:property-naming] Property name should start with a lowercase letter and use camel case
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/track/tracker/model/TrackSearch.kt:14:18: Format could not fix > [standard:property-naming] Property name should start with a lowercase letter and use camel case
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/track/tracker/model/TrackSearch.kt:16:18: Format could not fix > [standard:property-naming] Property name should start with a lowercase letter and use camel case
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/track/tracker/model/TrackSearch.kt:18:18: Format could not fix > [standard:property-naming] Property name should start with a lowercase letter and use camel case
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/track/tracker/model/TrackSearch.kt:20:18: Format could not fix > [standard:property-naming] Property name should start with a lowercase letter and use camel case
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/track/tracker/model/TrackSearch.kt:24:18: Format could not fix > [standard:property-naming] Property name should start with a lowercase letter and use camel case
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/track/tracker/model/TrackSearch.kt:26:18: Format could not fix > [standard:property-naming] Property name should start with a lowercase letter and use camel case
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/track/tracker/model/TrackSearch.kt:32:18: Format could not fix > [standard:property-naming] Property name should start with a lowercase letter and use camel case
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/track/tracker/model/TrackSearch.kt:34:18: Format could not fix > [standard:property-naming] Property name should start with a lowercase letter and use camel case
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/track/tracker/model/TrackSearch.kt:36:18: Format could not fix > [standard:property-naming] Property name should start with a lowercase letter and use camel case
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/track/tracker/model/TrackSearch.kt:38:18: Format could not fix > [standard:property-naming] Property name should start with a lowercase letter and use camel case
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/track/tracker/model/TrackSearch.kt:40:27: Format could not fix > [standard:property-naming] Property name should start with a lowercase letter and use camel case
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/track/tracker/model/TrackSearch.kt:42:9: Format could not fix > [standard:property-naming] Property name should start with a lowercase letter and use camel case
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/track/tracker/model/TrackSearch.kt:46:9: Format could not fix > [standard:property-naming] Property name should start with a lowercase letter and use camel case
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/track/tracker/model/TrackSearch.kt:48:9: Format could not fix > [standard:property-naming] Property name should start with a lowercase letter and use camel case
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/track/tracker/model/TrackSearch.kt:50:9: Format could not fix > [standard:property-naming] Property name should start with a lowercase letter and use camel case
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/track/tracker/myanimelist/MyAnimeListApi.kt:284:27: Format could not fix > [standard:property-naming] Property name should use the screaming snake case notation when the value can not be changed
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/track/tracker/myanimelist/MyAnimeListApi.kt:286:27: Format could not fix > [standard:property-naming] Property name should use the screaming snake case notation when the value can not be changed
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/track/tracker/myanimelist/MyAnimeListApi.kt:287:27: Format could not fix > [standard:property-naming] Property name should use the screaming snake case notation when the value can not be changed
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/track/tracker/myanimelist/MyAnimeListApi.kt:289:27: Format could not fix > [standard:property-naming] Property name should use the screaming snake case notation when the value can not be changed
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/track/tracker/anilist/AnilistApi.kt:12:1: Format could not fix > [standard:no-wildcard-imports] Wildcard import
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/track/tracker/anilist/AnilistApi.kt:382:27: Format could not fix > [standard:property-naming] Property name should use the screaming snake case notation when the value can not be changed
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/track/tracker/anilist/AnilistApi.kt:383:27: Format could not fix > [standard:property-naming] Property name should use the screaming snake case notation when the value can not be changed
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/track/tracker/anilist/AnilistApi.kt:384:27: Format could not fix > [standard:property-naming] Property name should use the screaming snake case notation when the value can not be changed
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/impl/track/tracker/anilist/AnilistApi.kt:385:27: Format could not fix > [standard:property-naming] Property name should use the screaming snake case notation when the value can not be changed
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/controller/TrackController.kt:17:1: Format could not fix > [standard:no-wildcard-imports] Wildcard import
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/controller/StatsController.kt:16:1: Format could not fix > [standard:no-wildcard-imports] Wildcard import
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/controller/HistoryController.kt:18:1: Format could not fix > [standard:no-wildcard-imports] Wildcard import
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/controller/MangaController.kt:21:1: Format could not fix > [standard:no-wildcard-imports] Wildcard import
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/manga/controller/UpdateController.kt:21:1: Format could not fix > [standard:no-wildcard-imports] Wildcard import
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/server/JavalinSetup.kt:28:1: Format could not fix > [standard:no-wildcard-imports] Wildcard import
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/server/JavalinSetup.kt:37:17: Format could not fix > [standard:property-naming] Property name should start with a lowercase letter and use camel case
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/server/JavalinSetup.kt:38:17: Format could not fix > [standard:property-naming] Property name should start with a lowercase letter and use camel case
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/server/database/MyBatchInsertStatement.kt:10:1: Format could not fix > [standard:no-wildcard-imports] Wildcard import
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/server/database/migration/M0001_Initial.kt:77:13: Format could not fix > [standard:kdoc] A KDoc is not allowed inside 'block'
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/server/database/migration/M0001_Initial.kt:103:13: Format could not fix > [standard:kdoc] A KDoc is not allowed inside 'block'
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/server/ServerSetup.kt:37:1: Format could not fix > [standard:no-wildcard-imports] Wildcard import
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/kotlin/JvmMainDispatcher.kt:11:1: Format could not fix > [standard:no-wildcard-imports] Wildcard import
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/kotlin/suwayomi/tachidesk/global/GlobalAPI.kt:11:1: Format could not fix > [standard:no-wildcard-imports] Wildcard import
+/home/runner/work/FreeYomi/FreeYomi/server-src/AndroidCompat/src/main/java/android/graphics/Bitmap.java:259: warning: [removal] finalize() in Object has been deprecated and marked for removal
+    protected void finalize() {
+                   ^
+/home/runner/work/FreeYomi/FreeYomi/server-src/AndroidCompat/src/main/java/app/cash/quickjs/QuickJs.java:190: warning: [removal] finalize() in Object has been deprecated and marked for removal
+  @Override protected void finalize() {
+                           ^
+/home/runner/work/FreeYomi/FreeYomi/server-src/AndroidCompat/src/main/java/android/database/sqlite/SQLiteDatabase.java:242: warning: [removal] finalize() in Object has been deprecated and marked for removal
+    protected void finalize() throws Throwable {
+                   ^
+/home/runner/work/FreeYomi/FreeYomi/server-src/AndroidCompat/src/main/java/android/database/sqlite/SQLiteDatabase.java:246: warning: [removal] finalize() in Object has been deprecated and marked for removal
+            super.finalize();
+                 ^
+/home/runner/work/FreeYomi/FreeYomi/server-src/AndroidCompat/src/main/java/android/content/pm/PackageManager.java:3369: warning: [dep-ann] deprecated item is not annotated with @Deprecated
+    public abstract int getInstantAppCookieMaxSize();
+                        ^
+/home/runner/work/FreeYomi/FreeYomi/server-src/AndroidCompat/src/main/java/android/content/Intent.java:4193: warning: [dep-ann] deprecated item is not annotated with @Deprecated
+    public static final int FLAG_ACTIVITY_CLEAR_WHEN_TASK_RESET = 0x00080000;
+                            ^
+/home/runner/work/FreeYomi/FreeYomi/server-src/AndroidCompat/src/main/java/android/os/MessageQueue.java:77: warning: [removal] finalize() in Object has been deprecated and marked for removal
+    protected void finalize() throws Throwable {
+                   ^
+/home/runner/work/FreeYomi/FreeYomi/server-src/AndroidCompat/src/main/java/android/os/MessageQueue.java:81: warning: [removal] finalize() in Object has been deprecated and marked for removal
+            super.finalize();
+                 ^
+/home/runner/work/FreeYomi/FreeYomi/server-src/AndroidCompat/src/main/java/android/webkit/WebView.java:341: warning: [removal] finalize() in Object has been deprecated and marked for removal
+    protected void finalize() {
+                   ^
+/home/runner/work/FreeYomi/FreeYomi/server-src/AndroidCompat/src/main/java/android/database/AbstractCursor.java:385: warning: [removal] finalize() in Object has been deprecated and marked for removal
+    protected void finalize() {
+                   ^
+/home/runner/work/FreeYomi/FreeYomi/server-src/AndroidCompat/src/main/java/android/graphics/BitmapFactory.java:213: warning: [dep-ann] deprecated item is not annotated with @Deprecated
+        public boolean inDither;
+                       ^
+/home/runner/work/FreeYomi/FreeYomi/server-src/AndroidCompat/src/main/java/android/net/NetworkInfo.java:424: warning: [dep-ann] deprecated item is not annotated with @Deprecated
+    public String getReason() {
+                  ^
+/home/runner/work/FreeYomi/FreeYomi/server-src/AndroidCompat/src/main/java/android/net/ConnectivityManager.java:1223: warning: [dep-ann] deprecated item is not annotated with @Deprecated
+    public static NetworkCapabilities networkCapabilitiesForType(int type) {
+                                      ^
+/home/runner/work/FreeYomi/FreeYomi/server-src/AndroidCompat/src/main/java/android/net/ConnectivityManager.java:1848: warning: [dep-ann] deprecated item is not annotated with @Deprecated
+    public void reportInetCondition(int networkType, int percentage) {
+                ^
+Note: Some input files use or override a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
+Note: Some input files use unchecked or unsafe operations.
+Note: Recompile with -Xlint:unchecked for details.
+14 warnings
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/java/org/jsoup/examples/Wikipedia.java:25: warning: non-varargs call of varargs method with inexact argument type for last parameter;
+        System.out.println(String.format(msg, vals));
+                                              ^
+  cast to Object for a varargs call
+  cast to Object[] for a non-varargs call and to suppress this warning
+/home/runner/work/FreeYomi/FreeYomi/server-src/server/src/main/java/org/jsoup/UncheckedIOException.java:10: warning: [dep-ann] deprecated item is not annotated with @Deprecated
+public class UncheckedIOException extends java.io.UncheckedIOException {
+       ^
+Note: Some input files use or override a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
+Note: Some input files use unchecked or unsafe operations.
+Note: Recompile with -Xlint:unchecked for details.
+2 warnings
