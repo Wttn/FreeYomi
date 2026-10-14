@@ -1,7 +1,8 @@
 import Foundation
 import FYCore
 
-/// Um repositório de extensões (índice `index.pb` ou `repo.json`), como na tela
+/// Um repositório de extensões (`index.pb`, `index.json`, `repo.json`,
+/// `index.min.json` ou o formato nativo do FreeYomi), como na tela
 /// "Repositórios de extensões" do Mihon/Tachimanga.
 ///
 /// Os dados vêm do próprio índice (nome, selo, site, Discord, chave de
@@ -54,26 +55,6 @@ public struct ExtensionRepository: Sendable, Codable, Hashable, Identifiable {
               url.scheme?.lowercased() == "https", url.host != nil else { return nil }
         return url
     }
-
-    /// Repositório padrão (o mesmo usado pelo Mihon).
-    public static let keiyoushiURL = "https://raw.githubusercontent.com/keiyoushi/extensions/repo/index.pb"
-}
-
-/// Sugestões exibidas em "Encontrar repositório". São só atalhos para o
-/// campo de endereço; nada é adicionado sem a confirmação do usuário, e o
-/// índice é validado antes de entrar na lista.
-public struct RepositorySuggestion: Sendable, Hashable, Identifiable {
-    public let name: String
-    public let indexURL: String
-    public let note: String
-    public var id: String { indexURL }
-
-    public static let all: [RepositorySuggestion] = [
-        RepositorySuggestion(name: "Keiyoushi", indexURL: ExtensionRepository.keiyoushiURL,
-                             note: "Repositório comunitário principal, com fontes em vários idiomas."),
-        RepositorySuggestion(name: "FelipeGFA", indexURL: "https://github.com/FelipeGFA/extensoes/raw/repo/index.pb",
-                             note: "Repositório comunitário (selo FGFA) com fontes em vários idiomas, incluindo pt-BR."),
-    ]
 }
 
 /// Erro no endereço digitado pelo usuário (mensagem pronta para exibir).
@@ -86,31 +67,80 @@ public struct RepositoryInputError: LocalizedError, Equatable, Sendable {
 }
 
 public enum RepositoryURL {
-    /// Valida e normaliza o que o usuário digitou ou colou. Aceita só HTTPS.
-    /// Sem esquema, assume `https://`.
-    public static func normalize(_ raw: String) throws -> String {
+    /// Comprimento máximo aceito para o endereço.
+    public static let maxLength = 2048
+
+    /// Esquemas recusados sempre, com mensagem específica.
+    static let dangerousSchemes: Set<String> = ["file", "javascript", "data", "about", "blob", "content", "ftp", "vbscript"]
+
+    /// Valida e normaliza o que o usuário digitou ou colou.
+    ///
+    /// - Aceita HTTPS. HTTP só quando `allowHTTP` é verdadeiro (opção explícita,
+    ///   com aviso na interface).
+    /// - Sem esquema, assume `https://`.
+    /// - Recusa esquemas perigosos (`file:`, `javascript:`, `data:`…), endereços
+    ///   com usuário/senha embutidos, espaços e endereços longos demais.
+    public static func normalize(_ raw: String, allowHTTP: Bool = false) throws -> String {
         var text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { throw RepositoryInputError("Informe o endereço do repositório.") }
-        if !text.contains("://") { text = "https://" + text }
+        guard text.count <= maxLength else { throw RepositoryInputError("Endereço longo demais.") }
+        guard !text.contains(where: { $0.isWhitespace || $0.isNewline }) else {
+            throw RepositoryInputError("O endereço não pode conter espaços.")
+        }
+        if let scheme = explicitScheme(text) {
+            if dangerousSchemes.contains(scheme) {
+                throw RepositoryInputError("Endereços \(scheme): não são aceitos. Use um endereço HTTPS.")
+            }
+            if scheme != "https" && scheme != "http" {
+                throw RepositoryInputError("Esquema \(scheme): não suportado. Use um endereço HTTPS.")
+            }
+        } else {
+            text = "https://" + text
+        }
         guard let comps = URLComponents(string: text), let scheme = comps.scheme?.lowercased(),
               let host = comps.host, !host.isEmpty else {
             throw RepositoryInputError("Endereço de repositório inválido.")
         }
-        guard scheme == "https" else {
-            throw RepositoryInputError("Use um endereço HTTPS. Repositórios em HTTP são recusados por segurança.")
+        guard comps.user == nil, comps.password == nil else {
+            throw RepositoryInputError("Não inclua usuário ou senha no endereço do repositório.")
+        }
+        if scheme == "http" {
+            guard allowHTTP else {
+                throw RepositoryInputError("Use um endereço HTTPS. Repositórios em HTTP são recusados por segurança "
+                                           + "(é possível liberar em Mais › Extensões, por sua conta e risco).")
+            }
+        } else if scheme != "https" {
+            throw RepositoryInputError("Use um endereço HTTPS.")
         }
         guard comps.path.count > 1 else {
-            throw RepositoryInputError("Informe o endereço completo do índice (termina em index.pb ou repo.json).")
-        }
-        if comps.path.hasSuffix("/index.min.json") {
-            throw RepositoryInputError("index.min.json é o formato antigo. Use o endereço do repo.json ou do index.pb.")
+            throw RepositoryInputError("Informe o endereço completo do índice (termina em index.pb, index.json, "
+                                       + "index.min.json ou repo.json).")
         }
         var out = comps
-        out.scheme = "https"
+        out.scheme = scheme
         out.host = host.lowercased()
         out.fragment = nil
         guard let s = out.string else { throw RepositoryInputError("Endereço de repositório inválido.") }
         return s
+    }
+
+    /// Esquema explícito no início do texto (`abc:`), sem confundir com
+    /// `host:porta` (`exemplo.com:8443/…`).
+    static func explicitScheme(_ text: String) -> String? {
+        guard let colon = text.firstIndex(of: ":") else { return nil }
+        let candidate = text[..<colon]
+        guard let first = candidate.first, first.isLetter,
+              candidate.allSatisfy({ $0.isLetter || $0.isNumber || $0 == "+" || $0 == "-" || $0 == "." }) else {
+            return nil
+        }
+        let after = text[text.index(after: colon)...]
+        if let next = after.first, next.isNumber, !text.contains("://") { return nil } // host:porta
+        return candidate.lowercased()
+    }
+
+    /// `true` se o endereço usa HTTP sem criptografia.
+    public static func isInsecure(_ s: String) -> Bool {
+        URLComponents(string: s)?.scheme?.lowercased() == "http"
     }
 
     /// Chave para comparar endereços equivalentes, como
@@ -129,7 +159,7 @@ public enum RepositoryURL {
         if h == "raw.githubusercontent.com" || h == "github.com" {
             if parts.count >= 2 { parts[0] = parts[0].lowercased(); parts[1] = parts[1].lowercased() }
         }
-        comps.scheme = "https"
+        comps.scheme = "https" // http e https do mesmo endereço contam como o mesmo repositório
         comps.host = h
         comps.path = "/" + parts.joined(separator: "/")
         comps.fragment = nil
@@ -138,7 +168,7 @@ public enum RepositoryURL {
 
     public static func same(_ a: String, _ b: String) -> Bool { canonicalKey(a) == canonicalKey(b) }
 
-    /// Nome provisório enquanto o índice não foi baixado (ex.: "keiyoushi/extensions").
+    /// Nome provisório enquanto o índice não foi baixado (ex.: "dono/repositorio").
     public static func displayName(_ s: String) -> String {
         guard let comps = URLComponents(string: s), let host = comps.host?.lowercased() else { return s }
         let parts = comps.path.split(separator: "/")
@@ -171,6 +201,7 @@ public enum RepositorySync {
 }
 
 /// Links "adicionar repositório" publicados por sites de repositórios.
+/// Só HTTPS: um link externo nunca habilita HTTP.
 /// Formatos do Mihon (MainActivity.isAddExtensionStoreIntent): `tachiyomi://add-repo?url=…`
 /// e `mihon://extension-store?url=…`; mais o equivalente `freeyomi://add-repo?url=…`.
 /// O link só preenche a tela de confirmação: nada é adicionado sem o usuário tocar em "Adicionar".

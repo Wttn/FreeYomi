@@ -1,0 +1,234 @@
+# Protótipo, etapa 2: prova de vida da JVM embutida.
+# Usa o OpenJDK compilado pelo workflow "Protótipo JVM iOS" (último sucesso),
+# monta o app JVMProbe, compila para o aparelho e testa no simulador
+# (se houver build do OpenJDK para o simulador).
+name: Protótipo JVM — prova de vida
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [prototipo/jvm-embutida, feature/extensoes-jvm, main]
+    paths:
+      - .github/workflows/jvm-probe.yml
+      - prototype/jvm/probe/**
+
+concurrency:
+  group: jvm-probe-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  probe:
+    runs-on: macos-26
+    timeout-minutes: 90
+    permissions:
+      actions: read
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      # Índice usado só para baixar uma extensão de teste no CI (não entra no app).
+      TEST_REPO_INDEX: https://raw.githubusercontent.com/keiyoushi/extensions/repo/index.json
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Selecionar Xcode 26
+        run: |
+          XCODE=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1)
+          if [ -z "$XCODE" ]; then XCODE=/Applications/Xcode.app; fi
+          sudo xcode-select -s "$XCODE"
+
+      - name: JDK para compilar os .jar
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Último OpenJDK para iOS compilado
+        id: jvmrun
+        run: |
+          RUN=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow jvm-ios.yml --branch "$GITHUB_REF_NAME" \
+                --limit 20 --json databaseId,conclusion,status \
+                --jq '[.[] | select(.conclusion=="success")][0].databaseId')
+          echo "run=$RUN" >> "$GITHUB_OUTPUT"
+          echo "::notice title=OpenJDK::usando o run $RUN"
+
+      - name: Último runtime das extensões
+        id: rtrun
+        run: |
+          RUN=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow jvm-runtime.yml --branch "$GITHUB_REF_NAME" \
+                --limit 20 --json databaseId,conclusion --jq '[.[] | select(.conclusion=="success")][0].databaseId')
+          echo "run=$RUN" >> "$GITHUB_OUTPUT"
+          echo "::notice title=runtime::usando o run $RUN"
+
+      - name: Baixar artefatos
+        run: |
+          mkdir -p probe-rt
+          [ -n "${{ steps.rtrun.outputs.run }}" ] && gh run download "${{ steps.rtrun.outputs.run }}" --repo "$GITHUB_REPOSITORY" --dir probe-rt || true
+          mkdir -p probe-jvm
+          gh run download "${{ steps.jvmrun.outputs.run }}" --repo "$GITHUB_REPOSITORY" --dir probe-jvm || true
+          find probe-jvm -maxdepth 2 | sed 's/^/::notice title=artefatos::/'
+
+      - name: Preparar o projeto
+        working-directory: prototype/jvm/probe
+        run: |
+          set -e
+          mkdir -p jvm Resources/lib Resources/jars
+          for sdk in iphoneos iphonesimulator; do
+            T=$(ls ../../../probe-jvm/openjdk-$sdk-zero/*.tgz 2>/dev/null | head -1 || true)
+            if [ -n "$T" ]; then mkdir -p jvm/$sdk && tar -xzf "$T" -C jvm/$sdk; fi
+          done
+          # Simulador (Apple Silicon): mesmas bibliotecas do aparelho, marcadas como simulador.
+          if [ -d jvm/iphoneos ] && [ ! -d jvm/iphonesimulator ]; then
+            mkdir -p jvm/iphonesimulator
+            (cd jvm/iphoneos && find static-libs -type d) | while read d; do mkdir -p "jvm/iphonesimulator/$d"; done
+            (cd jvm/iphoneos && find static-libs -name '*.a') | while read f; do
+              python3 ../../../scripts/ios_to_sim.py "jvm/iphoneos/$f" "jvm/iphonesimulator/$f" | sed 's/^/::notice title=simulador::/'
+            done
+            cp -R jvm/iphoneos/include jvm/iphonesimulator/include
+          fi
+          ls jvm
+          # Cabeçalhos JNI e JAVA_HOME (as classes são iguais nos dois SDKs).
+          SRC=$(ls -d jvm/iphonesimulator jvm/iphoneos 2>/dev/null | head -1)
+          cp -R "$SRC/include" jvm/include
+          if [ -z "$(find jvm/include -name jni_md.h)" ]; then
+            # jni_md.h padrão do OpenJDK para Unix (tipos e visibilidade).
+            printf '%s\n' '#ifndef _JAVASOFT_JNI_MD_H_' '#define _JAVASOFT_JNI_MD_H_' \
+              '#define JNIEXPORT __attribute__((visibility("default")))' '#define JNIIMPORT __attribute__((visibility("default")))' \
+              '#define JNICALL' 'typedef int jint;' '#ifdef _LP64' 'typedef long jlong;' '#else' 'typedef long long jlong;' '#endif' \
+              'typedef signed char jbyte;' '#endif' > jvm/include/jni_md.h
+            echo "::notice title=jni_md.h::gerado (não veio no artefato)"
+          fi
+          find jvm/include -name '*.h' | sed 's/^/::notice title=headers::/' | head -20
+          if [ -d "$SRC/javahome" ]; then cp -R "$SRC/javahome/." Resources/lib/; fi
+          ls -la Resources/lib Resources/lib/lib 2>/dev/null | head -20
+          if [ -f Resources/lib/lib/modules ] || [ -d Resources/lib/modules/java.base ]; then
+            echo "::notice title=classes::$(ls Resources/lib/modules 2>/dev/null | wc -l | tr -d ' ') módulos (imagem explodida)"
+          else
+            echo "::warning title=classes::sem classes do Java (a JVM não vai iniciar)"
+          fi
+          # .jar de teste
+          mkdir -p build-java && javac --release 11 -d build-java java/Hello.java java/Plugin.java
+          (cd build-java && jar cf ../Resources/jars/hello.jar Hello.class && jar cf ../Resources/jars/plugin.jar Plugin.class)
+          # Runtime das extensões (fork do Tachidesk do Tachimanga + ponte FYHost).
+          RT=$(find ../../../probe-rt -name 'fy-runtime.jar' | head -1)
+          [ -n "$RT" ] && cp "$RT" Resources/jars/fy-runtime.jar && echo "::notice title=runtime::$(du -h Resources/jars/fy-runtime.jar | cut -f1)"
+          # Extensão de teste: a primeira pt-BR marcada como segura no índice de um repositório (só para o teste).
+          python3 tools/pick_extension.py "$TEST_REPO_INDEX" Resources/jars | sed 's/^/::notice title=extensão de teste::/' || echo "::warning::sem extensão de teste"
+          # Configuração de segurança e certificados (HTTPS) — do JDK do runner.
+          mkdir -p Resources/lib/conf/security Resources/lib/lib/security
+          cp -R "$JAVA_HOME/conf/security/." Resources/lib/conf/security/
+          cp "$JAVA_HOME/lib/security/cacerts" Resources/lib/lib/security/
+          cp "$JAVA_HOME/lib/security/default.policy" Resources/lib/lib/security/ 2>/dev/null || true
+          cp "$JAVA_HOME/lib/tzdb.dat" Resources/lib/lib/ 2>/dev/null || true
+          # Ligação: força a carga das bibliotecas para que os JNI_OnLoad_* estáticos existam no executável.
+          libs() {
+            local base=jvm/$1/static-libs/lib
+            local flags=""
+            for l in zero/libjvm.a libjava.a libjimage.a libnet.a libnio.a libzip.a; do
+              [ -f "$base/$l" ] && flags="$flags -force_load \$(SRCROOT)/$base/$l"
+            done
+            echo "$flags"
+          }
+          FFI_DEV=$(dirname "$(find ../../../probe-jvm -name 'libffi*.a' 2>/dev/null | head -1)" 2>/dev/null || true)
+          {
+            echo "HEADER_SEARCH_PATHS = \$(inherited) \$(SRCROOT)/jvm/include/**"
+            echo "OTHER_LDFLAGS[sdk=iphoneos*] = \$(inherited) $(libs iphoneos) -lz -lc++ -lffi -framework Foundation -framework CoreFoundation -framework Security -framework CFNetwork -framework SystemConfiguration"
+            echo "OTHER_LDFLAGS[sdk=iphonesimulator*] = \$(inherited) $(libs iphonesimulator) -lz -lc++ -lffi -framework Foundation -framework CoreFoundation -framework Security -framework CFNetwork -framework SystemConfiguration"
+            echo "LIBRARY_SEARCH_PATHS[sdk=iphoneos*] = \$(inherited) \$(SRCROOT)/jvm/ffi/iphoneos"
+            echo "LIBRARY_SEARCH_PATHS[sdk=iphonesimulator*] = \$(inherited) \$(SRCROOT)/jvm/ffi/iphonesimulator"
+          } > jvm.xcconfig
+          cat jvm.xcconfig
+
+      - name: libffi (pacote de apoio do OpenJDK Mobile)
+        working-directory: prototype/jvm/probe
+        run: |
+          trap 'echo "::error title=libffi (linha $LINENO)::$BASH_COMMAND"' ERR
+          curl -fsSL https://download2.gluonhq.com/mobile/mobile-support-20250106.zip -o support.zip
+          unzip -q support.zip -d support
+          find support -name 'libffi*.a' | while read f; do lipo -info "$f"; done | sed 's/^/::notice title=libffi::/'
+          mkdir -p jvm/ffi/iphoneos jvm/ffi/iphonesimulator
+          F=$(find support -path '*libffi*' -name 'libffi.a' | sed -n 1p)
+          cp "$F" jvm/ffi/iphoneos/libffi.a
+          # libffi do pacote é antiga (LC_VERSION_MIN): compilamos a do simulador a partir do código-fonte.
+          curl -fsSL https://github.com/libffi/libffi/releases/download/v3.5.2/libffi-3.5.2.tar.gz -o libffi.tgz
+          tar -xzf libffi.tgz
+          (cd libffi-3.5.2 && SDK=$(xcrun --sdk iphonesimulator --show-sdk-path) && \
+            ./configure --build=x86_64-apple-darwin --host=aarch64-apple-darwin --disable-shared --enable-static --disable-docs \
+              CC="$(xcrun -f clang) -target arm64-apple-ios17.0-simulator -isysroot $SDK" > ../ffi-configure.log 2>&1 && \
+            make -j4 > ../ffi-make.log 2>&1) || { tail -30 ffi-configure.log ffi-make.log; tail -8 ffi-configure.log | sed 's/^/::error title=libffi configure::/'; tail -8 ffi-make.log 2>/dev/null | sed 's/^/::error title=libffi make::/'; exit 1; }
+          cp "$(find libffi-3.5.2 -name libffi.a -path '*/.libs/*' | sed -n 1p)" jvm/ffi/iphonesimulator/libffi.a
+          echo "::notice title=libffi simulador::compilada a partir do código-fonte (3.5.2)"
+
+      - name: Gerar projeto
+        working-directory: prototype/jvm/probe
+        run: brew install xcodegen && xcodegen generate
+
+      - name: Compilar para o aparelho (ligação da JVM)
+        working-directory: prototype/jvm/probe
+        run: |
+          if [ ! -d jvm/iphoneos ]; then echo "::warning::sem OpenJDK para iphoneos"; exit 0; fi
+          if ! xcodebuild build -project JVMProbe.xcodeproj -scheme JVMProbe -configuration Debug \
+               -destination "generic/platform=iOS" CODE_SIGNING_ALLOWED=NO > device.log 2>&1; then
+            grep -E "error:|Undefined symbols|referenced from|duplicate symbol" device.log | sort -u | head -40 | sed 's/^/::error title=aparelho::/'
+            tail -80 device.log
+            exit 1
+          fi
+          echo "::notice title=aparelho::JVMProbe ligou com a JVM para iOS (arm64)"
+
+      - name: Testar no simulador
+        working-directory: prototype/jvm/probe
+        run: |
+          if [ ! -d jvm/iphonesimulator ]; then echo "::warning::sem OpenJDK para o simulador; teste pulado"; exit 0; fi
+          UDID=$(xcrun simctl list devices available -j | python3 ../../../scripts/pick_simulator.py)
+          status=0
+          xcodebuild test -project JVMProbe.xcodeproj -scheme JVMProbe -destination "id=$UDID" \
+            CODE_SIGNING_ALLOWED=NO > sim.log 2>&1 || status=$?
+          grep -E "FYJVM-RESULT" sim.log | head -3 | sed 's/^/::notice title=resultado::/'
+          grep -E "FYJVM-EXT" sim.log | head -3 | cut -c1-900 | sed 's/^/::notice title=extensão::/'
+          DATA=$(xcrun simctl get_app_container "$UDID" io.github.freeyomi.jvmprobe data 2>/dev/null || true)
+          LOG=$(ls "$HOME/fyjvm.log" 2>/dev/null || find "${DATA:-/nonexistent}" -name fyjvm.log 2>/dev/null | head -1)
+          HSERR=$(find /Users/runner/Library/Developer/CoreSimulator/Devices/"$UDID"/data/Containers/Data/Application -name 'hs_err_pid*.log' 2>/dev/null | head -1)
+          if [ -n "$HSERR" ]; then
+            grep -v "^\s*$" "$HSERR" | sed -n '1,70p' | sed 's/^/::warning title=hs_err::/'
+            grep -A12 "^siginfo\|^Registers\|^Top of Stack" "$HSERR" | head -40 | sed 's/^/::warning title=hs_err sinal::/'
+            sed -n '/^Native frames/,/^$/p' "$HSERR" | head -30 | sed 's/^/::warning title=hs_err pilha::/'
+            sed -n '/^Java frames/,/^$/p' "$HSERR" | head -20 | sed 's/^/::warning title=hs_err java::/'
+          fi
+          if [ -n "$LOG" ]; then grep -v "^\s*$" "$LOG" | head -40 | sed 's/^/::notice title=saída da JVM::/'; else echo "::warning title=saída da JVM::fyjvm.log não encontrado"; fi
+          if [ "$status" -ne 0 ]; then
+            grep -E "Test Case|XCTAssert|error -|: error|Undefined symbols|crash|Crash|Fatal|fatal|SIG|abort|unexpected exit|Error occurred|Exception|JNI|# |Restarting" sim.log | grep -v "ld: warning" | sort -u | head -40 | sed 's/^/::error title=simulador::/'
+            grep -A4 "Error occurred during initialization" sim.log | head -12 | sed 's/^/::error title=JVM::/'
+            grep -iE "class,path|bootstrap|java.home|modules|\[os|\[class" sim.log | head -25 | sed 's/^/::warning title=JVM log::/'
+            grep -v "ld: warning" sim.log | tail -25 | sed 's/^/::warning title=simulador (fim)::/'
+            tail -100 sim.log
+            exit "$status"
+          fi
+
+      - name: Publicar logs no branch ci-logs
+        if: always()
+        working-directory: prototype/jvm/probe
+        run: |
+          OUT=/tmp/ci-logs/probe
+          mkdir -p "$OUT"
+          for f in device.log sim.log; do [ -f "$f" ] && grep -v "ld: warning" "$f" | tail -400 > "$OUT/$f"; done
+          cp "$HOME/fyjvm.log" "$OUT/" 2>/dev/null || true
+          UDID=$(xcrun simctl list devices booted -j | python3 -c "import json,sys;d=json.load(sys.stdin)['devices'];print(next((x['udid'] for v in d.values() for x in v),''))" || true)
+          HSERR=$(find /Users/runner/Library/Developer/CoreSimulator/Devices -name 'hs_err_pid*.log' 2>/dev/null | head -1)
+          if [ -n "$HSERR" ]; then
+            cp "$HSERR" "$OUT/hs_err.log"
+            BIN=$(find ~/Library/Developer/Xcode/DerivedData -path '*Debug-iphonesimulator/JVMProbe.app/JVMProbe' | head -1)
+            PC=$(grep -oE "pc=0x[0-9a-f]+" "$HSERR" | head -1 | cut -d= -f2)
+            LOAD=$(grep -E "JVMProbe.app/JVMProbe" "$HSERR" | grep -oE "^0x[0-9a-f]+" | head -1)
+            if [ -n "$BIN" ] && [ -n "$PC" ] && [ -n "$LOAD" ]; then
+              atos -o "$BIN" -l "$LOAD" "$PC" > "$OUT/crash-symbol.txt" 2>&1 || true
+              grep -oE "0x[0-9a-f]{9,}" "$HSERR" | sort -u | xargs atos -o "$BIN" -l "$LOAD" 2>&1 | grep " in \| (" > "$OUT/addresses.txt" || true
+            fi
+            # Relatório de travamento do macOS/simulador (pilha nativa simbolizada).
+            find ~/Library/Logs/DiagnosticReports -name 'JVMProbe*' -newer "$HSERR" 2>/dev/null | head -2 | while read r; do cp "$r" "$OUT/"; done
+          fi
+          ls -la "$OUT"
+          cd /tmp/ci-logs
+          git init -q && git checkout -q -b ci-logs
+          echo "run $GITHUB_RUN_ID ($GITHUB_SHA)" > README.txt
+          git add -A && git -c user.name="ci" -c user.email="ci@users.noreply.github.com" commit -qm "logs do run $GITHUB_RUN_ID"
+          git push -qf "https://x-access-token:${{ github.token }}@github.com/$GITHUB_REPOSITORY" ci-logs
+

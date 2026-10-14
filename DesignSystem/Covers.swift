@@ -26,7 +26,8 @@ struct CoverView: View {
             CoverImage(ref: .file(relativePath: rel))
         } else if let cover = manga.coverURL, let url = URL(string: cover), url.scheme == "https" || url.scheme == "http" {
             // HTTP só é aceito pelo pipeline para o servidor de extensões configurado.
-            CoverImage(ref: .remote(url: cover, headers: [:]))
+            // Fontes que exigem cabeçalhos (Referer etc.) os informam ao registrar-se.
+            CoverImage(ref: .remote(url: cover, headers: SourceImageHeaders.shared.headers(for: manga.sourceId)))
         } else {
             CoverPlaceholder()
         }

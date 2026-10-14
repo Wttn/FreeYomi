@@ -108,6 +108,42 @@ public enum Migrator {
             value TEXT NOT NULL
         );
         """),
+        Migration(version: 2, name: "repositórios e extensões instaladas", sql: """
+        CREATE TABLE extension_repositories (
+            url TEXT PRIMARY KEY NOT NULL,
+            canonical_key TEXT NOT NULL UNIQUE,
+            name TEXT,
+            badge_label TEXT,
+            website TEXT,
+            discord TEXT,
+            signing_key TEXT,
+            format TEXT,
+            extension_count INTEGER,
+            position INTEGER NOT NULL DEFAULT 0,
+            allows_http INTEGER NOT NULL DEFAULT 0,
+            added_at REAL NOT NULL,
+            last_sync_at REAL,
+            last_sync_ok INTEGER,
+            last_sync_error TEXT
+        );
+
+        CREATE TABLE installed_extensions (
+            id TEXT PRIMARY KEY NOT NULL,
+            name TEXT NOT NULL,
+            repository_url TEXT,
+            version_code INTEGER NOT NULL,
+            version_name TEXT NOT NULL,
+            adapter TEXT NOT NULL,
+            adapter_version INTEGER NOT NULL,
+            manifest BLOB NOT NULL,
+            sha256 TEXT NOT NULL,
+            integrity_verified INTEGER NOT NULL DEFAULT 0,
+            auto_update INTEGER NOT NULL DEFAULT 0,
+            installed_at REAL NOT NULL,
+            updated_at REAL NOT NULL,
+            last_error TEXT
+        );
+        """),
     ]
 
     public static var latestVersion: Int { migrations.last?.version ?? 0 }

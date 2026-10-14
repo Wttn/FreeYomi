@@ -2,18 +2,40 @@ import Foundation
 import FYCore
 import FYDomain
 
-/// Fonte nativa do MangaDex (https://api.mangadex.org), sem servidor intermediário.
+/// Endereços de uma fonte compatível com a API do MangaDex v5. Vêm sempre do
+/// manifesto instalado pelo usuário (ver `MangaDexAPIAdapter`); o app não
+/// traz nenhum endereço embutido.
+public struct MangaDexEndpoints: Sendable, Hashable {
+    public var api: String
+    public var covers: String
+    /// Endpoint de relatório da rede de imagens (MangaDex@Home), se houver.
+    public var report: String?
+    /// Servidores de imagem próprios (sufixo de host) que dispensam relatório.
+    public var trustedImageHost: String?
+
+    public init(api: String, covers: String, report: String? = nil, trustedImageHost: String? = nil) {
+        self.api = api
+        self.covers = covers
+        self.report = report
+        self.trustedImageHost = trustedImageHost
+    }
+}
+
+/// Fonte para a API pública do MangaDex v5, sem servidor intermediário.
+/// Criada pelo adaptador `mangadex-api-v5` a partir de um manifesto instalado.
 ///
 /// Regras da API respeitadas (api.mangadex.org/docs, consultado em 13/10/2026):
 /// - crédito ao MangaDex e aos grupos de tradução (exibidos em cada capítulo);
 /// - sem anúncios nem serviços pagos (o FreeYomi é gratuito);
 /// - User-Agent real e no máximo ~5 req/s (usamos 4/s) e 40/min em `/at-home/server`;
 /// - imagens via `/at-home/server/{id}` (`baseUrl` válido por ~15 min), sem
-///   cabeçalho de autenticação; relatório para nós MangaDex@Home (`api.mangadex.network/report`).
+///   cabeçalho de autenticação; relatório para nós MangaDex@Home (`reportUrl` do manifesto).
 public struct MangaDexSource: MangaSource {
-    public let id: SourceID = "mangadex"
-    public let name = "MangaDex"
+    public let id: SourceID
+    public let name: String
     public let kind: SourceKind = .online
+    public let endpoints: MangaDexEndpoints
+    public let attribution: String?
     public var supportsLatest: Bool { true }
     /// Idioma das traduções (ex.: "pt-br", "en").
     public let language: String
@@ -23,13 +45,17 @@ public struct MangaDexSource: MangaSource {
     let limiter: RateLimiter
     let atHomeLimiter: RateLimiter
 
-    static let api = "https://api.mangadex.org"
     static let pageSize = 30
 
-    public init(language: String = "pt-br", includeAdult: Bool = false, dataSaver: Bool = false,
+    public init(id: SourceID, name: String, language: String, includeAdult: Bool = false, dataSaver: Bool = false,
+                endpoints: MangaDexEndpoints, attribution: String? = nil,
                 http: HTTPClient = URLSessionHTTPClient(),
                 limiter: RateLimiter = RateLimiter(requestsPerSecond: 4),
                 atHomeLimiter: RateLimiter = RateLimiter(requestsPerSecond: 40.0 / 60.0)) {
+        self.id = id
+        self.name = name
+        self.endpoints = endpoints
+        self.attribution = attribution
         self.language = language.lowercased()
         self.includeAdult = includeAdult
         self.dataSaver = dataSaver
@@ -100,20 +126,20 @@ public struct MangaDexSource: MangaSource {
     private func request<T: Decodable>(_ path: String, _ query: [URLQueryItem], as: T.Type,
                                        limiter: RateLimiter? = nil) async throws -> T {
         try await (limiter ?? self.limiter).wait()
-        var comps = URLComponents(string: Self.api + path)!
+        guard var comps = URLComponents(string: endpoints.api + path) else { throw FYError.invalidData("URL inválida") }
         comps.queryItems = query.isEmpty ? nil : query
         guard let url = comps.url else { throw FYError.invalidData("URL inválida") }
         let response = try await http.get(url, headers: [:])
         switch response.statusCode {
         case 200..<300: break
-        case 429: throw FYError.network("o MangaDex limitou as requisições; aguarde alguns segundos")
-        case 404: throw FYError.notFound("conteúdo no MangaDex")
+        case 429: throw FYError.network("\(name) limitou as requisições; aguarde alguns segundos")
+        case 404: throw FYError.notFound("conteúdo em \(name)")
         default: throw FYError.httpStatus(response.statusCode, url: Redactor.redact(url))
         }
         do {
             return try JSONDecoder().decode(T.self, from: response.body)
         } catch {
-            throw FYError.invalidData("resposta inesperada do MangaDex")
+            throw FYError.invalidData("resposta inesperada de \(name)")
         }
     }
 
@@ -146,7 +172,7 @@ public struct MangaDexSource: MangaSource {
             summary: desc?[language] ?? desc?["en"] ?? desc?.values.first,
             genres: (m.attributes.tags ?? []).compactMap { $0.attributes.name["en"] },
             status: status,
-            coverURL: cover.map { "https://uploads.mangadex.org/covers/\(m.id)/\($0).256.jpg" })
+            coverURL: cover.map { "\(endpoints.covers)/covers/\(m.id)/\($0).256.jpg" })
     }
 
     static let isoFormatter: ISO8601DateFormatter = {
@@ -235,24 +261,31 @@ public struct MangaDexSource: MangaSource {
         let home = try await request("/at-home/server/\(chapterKey)", [], as: AtHome.self, limiter: atHomeLimiter)
         let files = dataSaver ? home.chapter.dataSaver : home.chapter.data
         let quality = dataSaver ? "data-saver" : "data"
-        guard !files.isEmpty else { throw FYError.invalidData("capítulo sem páginas no MangaDex") }
-        let report = !home.baseUrl.contains("mangadex.org")
+        guard !files.isEmpty else { throw FYError.invalidData("capítulo sem páginas em \(name)") }
+        // Nós da rede de imagens (fora dos servidores próprios) exigem relatório.
+        var reportTo: String?
+        if let endpoint = endpoints.report {
+            let host = URLComponents(string: home.baseUrl)?.host?.lowercased() ?? ""
+            let trusted = endpoints.trustedImageHost.map { host == $0 || host.hasSuffix("." + $0) } ?? false
+            if !trusted { reportTo = endpoint }
+        }
         return files.enumerated().map { i, file in
             Page(index: i, image: .remote(url: "\(home.baseUrl)/\(quality)/\(home.chapter.hash)/\(file)",
-                                          headers: report ? [MangaDexReporter.marker: "1"] : [:]))
+                                          headers: reportTo.map { [MangaDexReporter.marker: $0] } ?? [:]))
         }
     }
 }
 
 /// Relatório exigido pela rede MangaDex@Home para cada imagem baixada de nós
-/// que não são `mangadex.org`.
+/// que não são os servidores próprios da fonte.
 public enum MangaDexReporter {
-    /// Cabeçalho interno (nunca enviado) que marca imagens a relatar.
+    /// Cabeçalho interno (nunca enviado) que marca imagens a relatar; o valor é
+    /// o endpoint de relatório informado no manifesto.
     public static let marker = "X-FreeYomi-MangaDexReport"
 
-    public static func report(url: String, success: Bool, cached: Bool, bytes: Int, durationMs: Int,
-                              http: HTTPClient) async {
-        guard let endpoint = URL(string: "https://api.mangadex.network/report"),
+    public static func report(to endpointString: String, url: String, success: Bool, cached: Bool, bytes: Int,
+                              durationMs: Int, http: HTTPClient) async {
+        guard let endpoint = URL(string: endpointString), endpoint.scheme?.lowercased() == "https",
               let body = try? JSONSerialization.data(withJSONObject: [
                   "url": url, "success": success, "cached": cached, "bytes": bytes, "duration": durationMs,
               ]) else { return }

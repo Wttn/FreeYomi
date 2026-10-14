@@ -68,6 +68,8 @@ public protocol MangaSource: Sendable {
     var kind: SourceKind { get }
     var supportsSearch: Bool { get }
     var supportsLatest: Bool { get }
+    /// Crédito exibido nos detalhes da fonte (ex.: termos de uso da API).
+    var attribution: String? { get }
 
     func popular(page: Int) async throws -> MangaListPage
     func latest(page: Int) async throws -> MangaListPage
@@ -80,6 +82,7 @@ public protocol MangaSource: Sendable {
 extension MangaSource {
     public var supportsSearch: Bool { true }
     public var supportsLatest: Bool { false }
+    public var attribution: String? { nil }
     public func latest(page: Int) async throws -> MangaListPage { try await popular(page: page) }
 
     public var descriptor: Source {
@@ -93,7 +96,7 @@ public enum SourceImplementationStatus: String, Sendable, CaseIterable {
     case implemented
     /// Planejada, ainda não implementada (ex.: Komga na Fase 2/3).
     case planned
-    /// Existe no catálogo Keiyoushi mas exige execução Android (APK/JAR).
+    /// Existe num repositório mas exige execução Android (APK/JAR).
     case requiresAndroid
 
     public var label: String {
@@ -133,11 +136,11 @@ public final class SourceRegistry: @unchecked Sendable {
         for s in sources { self.sources[s.id] = s }
     }
 
-    /// Fontes nativas disponíveis. `localStore` habilita "Arquivos locais".
-    public static func makeDefault(localStore: LocalLibraryStore? = nil,
-                                   mangaDex: MangaDexSource? = nil) -> SourceRegistry {
+    /// Fontes locais disponíveis sem nenhuma configuração. Nenhuma fonte online
+    /// vem registrada: elas só aparecem quando o usuário instala uma extensão
+    /// compatível de um repositório que ele mesmo adicionou.
+    public static func makeDefault(localStore: LocalLibraryStore? = nil) -> SourceRegistry {
         var list: [any MangaSource] = [DemoSource()]
-        if let mangaDex { list.append(mangaDex) }
         if let localStore { list.append(LocalSource(store: localStore)) }
         return SourceRegistry(sources: list)
     }
@@ -177,8 +180,7 @@ public final class SourceRegistry: @unchecked Sendable {
             case .demo: note = "Dados fictícios gerados localmente"
             case .localFiles: note = "CBZ, ZIP, EPUB de imagens e pastas importados pelo app Arquivos"
             case .personalServer: note = "Extensão executada no seu servidor Suwayomi"
-            case .online: note = s.id == "mangadex"
-                ? "API pública do MangaDex. Créditos ao MangaDex e aos grupos de tradução de cada capítulo." : ""
+            case .online: note = s.attribution ?? "Extensão nativa instalada de um repositório adicionado por você"
             }
             return SourceListing(id: s.id, name: s.name, language: s.language, kind: s.kind, status: .implemented, note: note)
         }

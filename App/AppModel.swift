@@ -16,7 +16,8 @@ final class AppModel {
     let store: DataStore
     let registry: SourceRegistry
     let service: LibraryService
-    let catalog: ExtensionCatalogClient
+    /// Repositórios e extensões adicionados pelo usuário (nenhum vem de fábrica).
+    let extensions: ExtensionManager
     /// Títulos importados (CBZ/ZIP/EPUB/pastas), dentro do contêiner do app.
     let localStore: LocalLibraryStore
     let importer: LocalImporter
@@ -30,11 +31,9 @@ final class AppModel {
         didSet {
             guard settings != oldValue else { return }
             do { try store.settings.save(settings) } catch { report(error) }
-            if settings.mangaDexEnabled != oldValue.mangaDexEnabled
-                || settings.mangaDexLanguage != oldValue.mangaDexLanguage
-                || settings.mangaDexDataSaver != oldValue.mangaDexDataSaver
+            if settings.sourceDataSaver != oldValue.sourceDataSaver
                 || settings.showNSFWExtensions != oldValue.showNSFWExtensions {
-                configureMangaDex()
+                activateNativeSources()
             }
         }
     }
@@ -53,6 +52,17 @@ final class AppModel {
 
     // MARK: Repositórios de extensões
 
+    /// Repositórios cadastrados (banco local), na ordem exibida.
+    private(set) var repositories: [RepositoryRecord] = []
+    /// Extensões nativas instaladas.
+    private(set) var installedExtensions: [InstalledExtensionRecord] = []
+    /// Pacotes sendo baixados/instalados agora.
+    private(set) var extensionTasks: Set<String> = []
+    /// Última falha de instalação por pacote.
+    private(set) var extensionFailures: [String: String] = [:]
+    /// Extensões conhecidas pelo servidor (com servidor conectado).
+    private(set) var serverExtensions: [String: SuwayomiExtension] = [:]
+    private(set) var serverExtensionsError: String?
     /// Metadados de cada repositório da lista (último índice baixado ou erro).
     private(set) var repositoryCatalogs: [RepositoryCatalog] = []
     /// Repositórios como o servidor os guarda (com servidor conectado).
@@ -80,14 +90,19 @@ final class AppModel {
 
     private var didBootstrap = false
 
-    init(store: DataStore, registry: SourceRegistry, catalogCache: URL, localStore: LocalLibraryStore) {
+    init(store: DataStore, registry: SourceRegistry, catalogCache: URL, localStore: LocalLibraryStore,
+         extensionsDirectory: URL) {
         self.store = store
         self.registry = registry
         self.localStore = localStore
         self.importer = LocalImporter(store: localStore)
         ImagePipeline.shared.localRoot = localStore.root
         self.service = LibraryService(store: store, registry: registry)
-        self.catalog = ExtensionCatalogClient(http: URLSessionHTTPClient(), cacheDirectory: catalogCache)
+        // O catálogo valida o destino por conta própria (HTTPS; HTTP só com opção explícita).
+        let catalog = ExtensionCatalogClient(http: URLSessionHTTPClient(policy: .httpsOrHTTP), cacheDirectory: catalogCache)
+        // Extensões Android (.jar) rodam na JVM embutida, quando o app foi compilado com ela.
+        let jvm = JVMExtensionInstaller(catalog: catalog, bridge: EmbeddedJVM.shared, directory: extensionsDirectory)
+        self.extensions = ExtensionManager(store: store, catalog: catalog, registry: registry, jvm: jvm)
         self.settings = store.settings.load()
     }
 
@@ -97,8 +112,10 @@ final class AppModel {
         let fm = FileManager.default
         let support = (try? fm.url(for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil,
                                    create: true)) ?? fm.temporaryDirectory
-        let caches = (try? fm.url(for: .cachesDirectory, in: .userDomainMask, appropriateFor: nil, create: true))
-            ?? fm.temporaryDirectory
+        // Índices dos repositórios ficam em Application Support (a pasta Caches
+        // pode ser apagada pelo iOS, e a lista precisa continuar visível offline).
+        let repoCache = support.appendingPathComponent("FreeYomi/RepositoryCache", isDirectory: true)
+        let extensionsDir = support.appendingPathComponent("FreeYomi/Extensions", isDirectory: true)
         let uiTesting = ProcessInfo.processInfo.arguments.contains("-ui-testing")
         let localRoot = uiTesting
             ? fm.temporaryDirectory.appendingPathComponent("ui-tests-local-\(UUID().uuidString)", isDirectory: true)
@@ -107,17 +124,18 @@ final class AppModel {
         let registry = SourceRegistry.makeDefault(localStore: localStore)
 
         if uiTesting, let mem = try? DataStore.inMemory() {
-            return AppModel(store: mem, registry: registry, catalogCache: caches.appendingPathComponent("ui-tests"),
-                            localStore: localStore)
+            return AppModel(store: mem, registry: registry,
+                            catalogCache: fm.temporaryDirectory.appendingPathComponent("ui-tests-repos-\(UUID().uuidString)"),
+                            localStore: localStore,
+                            extensionsDirectory: fm.temporaryDirectory.appendingPathComponent("ui-tests-ext-\(UUID().uuidString)"))
         }
 
         let dbURL = support.appendingPathComponent("FreeYomi", isDirectory: true)
             .appendingPathComponent("library.sqlite")
         do {
             let store = try DataStore.open(fileURL: dbURL)
-            let model = AppModel(store: store, registry: registry,
-                                 catalogCache: caches.appendingPathComponent("catalog", isDirectory: true),
-                                 localStore: localStore)
+            let model = AppModel(store: store, registry: registry, catalogCache: repoCache, localStore: localStore,
+                                 extensionsDirectory: extensionsDir)
             if store.recoveredFromCorruption {
                 model.startupNotice = "O banco de dados estava danificado e foi recriado. "
                     + "O arquivo original foi preservado para recuperação manual."
@@ -126,7 +144,9 @@ final class AppModel {
         } catch {
             // Último recurso: banco temporário para o app abrir mesmo assim.
             let mem = try! DataStore.inMemory()
-            let model = AppModel(store: mem, registry: registry, catalogCache: caches, localStore: localStore)
+            let model = AppModel(store: mem, registry: registry,
+                                 catalogCache: fm.temporaryDirectory.appendingPathComponent("repos-temp"), localStore: localStore,
+                                 extensionsDirectory: extensionsDir)
             model.startupNotice = "Não foi possível abrir a biblioteca local (\(error.localizedDescription)). "
                 + "Os dados desta sessão não serão salvos."
             return model
@@ -148,9 +168,14 @@ final class AppModel {
         } catch {
             report(error)
         }
-        configureMangaDex()
+        migrateRepositories()
+        activateNativeSources()
+        loadCachedRepositories()
         if !ProcessInfo.processInfo.arguments.contains("-ui-testing") {
-            Task { await connectServer() }
+            Task {
+                await connectServer()
+                if settings.refreshRepositoriesOnLaunch && !repositories.isEmpty { await refreshRepositories() }
+            }
         }
         if let notice = startupNotice { alertMessage = notice }
         dataVersion += 1
@@ -198,16 +223,13 @@ final class AppModel {
 
     // MARK: - Fontes online
 
-    /// Registra (ou remove) a fonte nativa do MangaDex conforme as preferências.
-    func configureMangaDex() {
-        if settings.mangaDexEnabled {
-            registry.register(MangaDexSource(language: settings.mangaDexLanguage,
-                                             includeAdult: settings.showNSFWExtensions,
-                                             dataSaver: settings.mangaDexDataSaver))
-        } else {
-            registry.unregister("mangadex")
-        }
+    /// Ativa as fontes das extensões nativas instaladas (cada uma isolada).
+    func activateNativeSources() {
+        let context = AdapterContext(includeAdult: settings.showNSFWExtensions, dataSaver: settings.sourceDataSaver)
+        let failures = extensions.activateInstalledSources(context: context)
+        for (id, message) in failures { extensionFailures[id] = message }
         try? service.syncSourceTable()
+        reloadExtensionState()
         dataVersion += 1
     }
 
@@ -225,6 +247,7 @@ final class AppModel {
             serverClient = nil
             registry.replaceSources(withPrefix: SuwayomiSource.prefix, with: [])
             ImagePipeline.shared.serverConfig = nil
+            serverExtensions = [:]
             await syncRepositoriesWithServer()
             dataVersion += 1
             return
@@ -242,9 +265,11 @@ final class AppModel {
             serverClient = client
             serverState = .connected(name: about.name, version: about.version, sources: visible.count)
             await syncRepositoriesWithServer()
+            await loadServerExtensions()
         } catch {
             serverClient = nil
             serverState = .failed(error.localizedDescription)
+            serverExtensions = [:]
             await syncRepositoriesWithServer()
         }
         dataVersion += 1
@@ -325,22 +350,56 @@ final class AppModel {
 
     // MARK: - Repositórios de extensões
 
-    /// Informações para exibir: o servidor (quando conectado) e, na falta, o índice baixado.
+    func reloadExtensionState() {
+        repositories = extensions.repositories()
+        installedExtensions = extensions.installedExtensions()
+    }
+
+    /// Copia a lista das versões 0.3.x para o banco (uma vez) e avisa se o
+    /// repositório que vinha pré-configurado foi retirado.
+    private func migrateRepositories() {
+        guard !settings.repositoriesMigrated else { reloadExtensionState(); return }
+        var s = settings
+        let result = extensions.migrateLegacySettings(&s)
+        settings = s
+        reloadExtensionState()
+        if result.removedPreconfigured {
+            let notice = "O repositório de extensões que vinha pré-configurado nas versões anteriores foi removido: "
+                + "o FreeYomi não traz mais repositórios de fábrica. Para continuar usando um repositório, "
+                + "adicione o endereço em Mais › Extensões › Repositórios de extensões."
+            startupNotice = startupNotice.map { $0 + "\n\n" + notice } ?? notice
+        }
+    }
+
+    /// Informações para exibir: banco local, servidor (quando conectado) e índice baixado.
     func repositoryInfo(_ url: String) -> ExtensionRepository {
+        let record = repositories.first { RepositoryURL.same($0.url, url) }
         let fromServer = serverRepositories.first { RepositoryURL.same($0.indexURL, url) }
         let fromCatalog = repositoryCatalogs.first { RepositoryURL.same($0.indexURL, url) }?.snapshot
             .map { ExtensionRepository(indexURL: url, index: $0.index) }
-        var repo = fromServer ?? fromCatalog ?? ExtensionRepository(indexURL: url, name: RepositoryURL.displayName(url))
+        var repo = fromCatalog ?? fromServer ?? ExtensionRepository(indexURL: url, name: RepositoryURL.displayName(url))
         repo.indexURL = url
-        if repo.website == nil { repo.website = fromCatalog?.website }
-        if repo.discord == nil { repo.discord = fromCatalog?.discord }
-        if repo.signingKey == nil { repo.signingKey = fromCatalog?.signingKey }
-        if repo.extensionCount == nil { repo.extensionCount = fromCatalog?.extensionCount }
+        if let record {
+            if let name = record.name, !name.isEmpty, fromCatalog == nil { repo.name = name }
+            if repo.badgeLabel.isEmpty { repo.badgeLabel = record.badgeLabel ?? "" }
+            if repo.website == nil { repo.website = record.website }
+            if repo.discord == nil { repo.discord = record.discord }
+            if repo.signingKey == nil { repo.signingKey = record.signingKey }
+            if repo.extensionCount == nil { repo.extensionCount = record.extensionCount }
+        }
+        if repo.website == nil { repo.website = fromServer?.website }
+        if repo.discord == nil { repo.discord = fromServer?.discord }
         return repo
     }
 
+    func repositoryRecord(_ url: String) -> RepositoryRecord? {
+        repositories.first { RepositoryURL.same($0.url, url) }
+    }
+
     func repositoryError(_ url: String) -> String? {
-        repositoryCatalogs.first { RepositoryURL.same($0.indexURL, url) }?.error
+        if let error = repositoryCatalogs.first(where: { RepositoryURL.same($0.indexURL, url) })?.error { return error }
+        guard let record = repositoryRecord(url), record.lastSyncSucceeded == false else { return nil }
+        return record.lastSyncError
     }
 
     func isOnServer(_ url: String) -> Bool {
@@ -348,7 +407,7 @@ final class AppModel {
     }
 
     func isRepositoryAdded(_ url: String) -> Bool {
-        settings.extensionRepositories.contains { RepositoryURL.same($0, url) }
+        extensions.isAdded(url)
     }
 
     /// Selo do repositório de origem de uma extensão instalada no servidor (ex.: "KEI").
@@ -360,40 +419,56 @@ final class AppModel {
 
     /// Lê os índices salvos (sem rede).
     func loadCachedRepositories() {
-        repositoryCatalogs = catalog.cachedAll(settings.extensionRepositories)
+        reloadExtensionState()
+        repositoryCatalogs = extensions.cachedCatalogs()
     }
 
-    /// Baixa de novo os índices de todos os repositórios e sincroniza com o servidor.
+    /// Baixa de novo os índices de todos os repositórios, sincroniza com o
+    /// servidor e aplica as atualizações automáticas que o usuário habilitou.
     func refreshRepositories() async {
         guard !isRefreshingRepositories else { return }
         isRefreshingRepositories = true
         defer { isRefreshingRepositories = false }
-        repositoryCatalogs = await catalog.refreshAll(settings.extensionRepositories)
+        repositoryCatalogs = await extensions.refreshAll()
+        reloadExtensionState()
         await syncRepositoriesWithServer()
+        let auto = await extensions.applyAutoUpdates(repositoryCatalogs)
+        if !auto.updated.isEmpty { activateNativeSources() }
+        for (id, message) in auto.failed { extensionFailures[id] = message }
+        dataVersion += 1
     }
 
-    /// Baixa e valida o índice antes de adicionar (só metadados; nada é executado).
-    func previewRepository(_ raw: String) async throws -> (url: String, snapshot: CatalogSnapshot) {
-        let url = try RepositoryURL.normalize(raw)
-        if isRepositoryAdded(url) { throw RepositoryInputError.alreadyAdded }
-        let snapshot = try await catalog.refresh(from: url)
-        return (url, snapshot)
+    /// Atualiza um único repositório.
+    func refreshRepository(_ url: String) async {
+        let result = await extensions.refresh(url)
+        if let i = repositoryCatalogs.firstIndex(where: { RepositoryURL.same($0.indexURL, url) }) {
+            repositoryCatalogs[i] = result
+        } else {
+            repositoryCatalogs.append(result)
+        }
+        reloadExtensionState()
+        dataVersion += 1
     }
 
-    /// Adiciona o repositório ao app e, com servidor conectado, ao servidor.
+    /// "Validar": baixa e confere o índice (só metadados; nada é executado nem salvo).
+    func previewRepository(_ raw: String) async throws -> RepositoryPreview {
+        try await extensions.preview(raw, allowHTTP: settings.allowInsecureRepositoryHTTP)
+    }
+
+    /// "Adicionar": grava no banco e, com servidor conectado, envia ao servidor.
     /// Devolve um aviso quando o servidor não aceitou.
     @discardableResult
-    func addRepository(url: String, snapshot: CatalogSnapshot?) async -> String? {
-        guard !isRepositoryAdded(url) else { return nil }
-        var s = settings
-        s.extensionRepositories.append(url)
-        settings = s
-        repositoryCatalogs.append(RepositoryCatalog(indexURL: url, snapshot: snapshot, error: nil))
+    func addRepository(_ preview: RepositoryPreview) async throws -> String? {
+        try extensions.add(preview)
+        reloadExtensionState()
+        repositoryCatalogs.removeAll { RepositoryURL.same($0.indexURL, preview.url) }
+        repositoryCatalogs.append(RepositoryCatalog(indexURL: preview.url, snapshot: preview.snapshot, error: nil))
         var note: String?
         if let client = serverClient {
             do {
-                try await client.addExtensionStore(indexURL: url)
+                try await client.addExtensionStore(indexURL: preview.url)
                 await syncRepositoriesWithServer()
+                await loadServerExtensions()
             } catch {
                 note = "Adicionado no app, mas o servidor não aceitou: \(error.localizedDescription)"
             }
@@ -402,35 +477,47 @@ final class AppModel {
         return note
     }
 
-    /// Remove o repositório do app e do servidor.
-    func removeRepository(_ url: String) async {
+    /// Remove o repositório do app (e do servidor). Biblioteca, capítulos
+    /// baixados e extensões instaladas são preservados.
+    @discardableResult
+    func removeRepository(_ url: String) async -> RepositoryRemovalSummary? {
         if let client = serverClient,
            let onServer = serverRepositories.first(where: { RepositoryURL.same($0.indexURL, url) }) {
             do {
                 try await client.removeExtensionStore(indexURL: onServer.indexURL)
             } catch {
                 report(error)
-                return // sem isso, a próxima sincronização traria o repositório de volta
+                return nil // sem isso, a próxima sincronização traria o repositório de volta
             }
         }
-        var s = settings
-        s.extensionRepositories.removeAll { RepositoryURL.same($0, url) }
-        settings = s
-        repositoryCatalogs.removeAll { RepositoryURL.same($0.indexURL, url) }
-        serverRepositories.removeAll { RepositoryURL.same($0.indexURL, url) }
-        catalog.removeCache(for: url)
-        if serverClient != nil { await syncRepositoriesWithServer() }
-        dataVersion += 1
+        do {
+            let summary = try extensions.remove(url)
+            repositoryCatalogs.removeAll { RepositoryURL.same($0.indexURL, url) }
+            serverRepositories.removeAll { RepositoryURL.same($0.indexURL, url) }
+            reloadExtensionState()
+            if serverClient != nil {
+                await syncRepositoriesWithServer()
+                await loadServerExtensions()
+            }
+            dataVersion += 1
+            return summary
+        } catch {
+            report(error)
+            return nil
+        }
     }
 
     func moveRepositories(from offsets: IndexSet, to destination: Int) {
-        var s = settings
-        s.extensionRepositories.move(fromOffsets: offsets, toOffset: destination)
-        settings = s
+        var urls = repositories.map(\.url)
+        urls.move(fromOffsets: offsets, toOffset: destination)
+        do { try extensions.reorder(urls) } catch { report(error) }
+        reloadExtensionState()
+        repositoryCatalogs = urls.compactMap { url in repositoryCatalogs.first { $0.indexURL == url } }
     }
 
     /// Une a lista do app com a do servidor: o que falta no servidor é adicionado
-    /// lá; o que só existe no servidor entra na lista do app.
+    /// lá; o que só existe no servidor (adicionado por você na interface dele)
+    /// entra na lista do app.
     func syncRepositoriesWithServer() async {
         guard let client = serverClient else {
             serverRepositories = []
@@ -440,7 +527,8 @@ final class AppModel {
         }
         do {
             var server = try await client.extensionStores()
-            let plan = RepositorySync.plan(local: settings.extensionRepositories, server: server)
+            let local = repositories.map(\.url)
+            let plan = RepositorySync.plan(local: local, server: server)
             var failures: [String] = []
             for url in plan.addToServer {
                 do {
@@ -452,11 +540,10 @@ final class AppModel {
             if !plan.addToServer.isEmpty {
                 server = (try? await client.extensionStores()) ?? server
             }
-            if plan.mergedLocal != settings.extensionRepositories {
-                var s = settings
-                s.extensionRepositories = plan.mergedLocal
-                settings = s
+            for url in plan.mergedLocal where !local.contains(url) {
+                _ = try? extensions.addWithoutPreview(url)
             }
+            reloadExtensionState()
             serverRepositories = server
             serverExtensionStores = (try? await client.extensionStoreIndex()) ?? [:]
             repositorySyncNote = failures.isEmpty ? nil
@@ -467,6 +554,123 @@ final class AppModel {
             repositorySyncNote = "Não foi possível ler os repositórios do servidor (\(error.localizedDescription)). "
                 + "Atualize o Suwayomi-Server para uma versão recente."
         }
+    }
+
+    // MARK: - Extensões
+
+    /// Linhas da tela "Extensões".
+    func extensionListings() -> [ExtensionListing] {
+        let server: [String: ServerExtensionState]? = serverClient == nil ? nil : serverExtensions.mapValues {
+            ServerExtensionState(installed: $0.installed, hasUpdate: $0.hasUpdate, versionName: $0.versionName,
+                                 name: $0.name, lang: $0.lang, iconURL: serverClient?.absolute($0.iconUrl) ?? $0.iconUrl)
+        }
+        return ExtensionListBuilder.build(catalogs: repositoryCatalogs, repositories: repositories,
+                                          installed: installedExtensions, adapters: extensions.adapters, server: server,
+                                          inProgress: extensionTasks, failures: extensionFailures,
+                                          jvmAvailable: extensions.jvmAvailable)
+    }
+
+    func loadServerExtensions() async {
+        guard let client = serverClient else { serverExtensions = [:]; return }
+        do {
+            let list = try await client.extensions()
+            serverExtensions = Dictionary(list.map { ($0.pkgName, $0) }, uniquingKeysWith: { a, _ in a })
+            serverExtensionsError = nil
+        } catch {
+            serverExtensionsError = error.localizedDescription
+        }
+    }
+
+    /// Instala ou atualiza: no iPhone (extensão nativa) ou no servidor (Android).
+    func installExtension(_ item: ExtensionListing) async {
+        guard !extensionTasks.contains(item.packageName) else { return }
+        extensionTasks.insert(item.packageName)
+        extensionFailures[item.packageName] = nil
+        defer { extensionTasks.remove(item.packageName) }
+        do {
+            switch item.runtime {
+            case .device:
+                guard let entry = item.catalogEntry, let repo = item.origin.repositoryURL else {
+                    throw FYError.notFound("esta extensão não está mais em nenhum repositório")
+                }
+                try await extensions.install(entry, from: repo)
+                activateNativeSources()
+            case .server:
+                guard let client = serverClient else { throw FYError.unsupported("servidor de extensões desconectado") }
+                if case .updateAvailable = item.state {
+                    try await client.update(item.packageName)
+                } else {
+                    try await client.install(item.packageName)
+                }
+                await loadServerExtensions()
+                await connectServer() // atualiza a lista de fontes
+            case .none:
+                throw FYError.unsupported(item.compatibility.label)
+            }
+            Haptics.success()
+        } catch {
+            if let fy = error as? FYError, fy == .cancelled { return }
+            extensionFailures[item.packageName] = error.localizedDescription
+        }
+        dataVersion += 1
+    }
+
+    /// Remove a extensão. Os títulos dela continuam na biblioteca.
+    func uninstallExtension(_ item: ExtensionListing) async {
+        do {
+            switch item.runtime {
+            case .device:
+                try extensions.uninstall(item.packageName)
+                extensionFailures[item.packageName] = nil
+                activateNativeSources()
+            case .server:
+                guard let client = serverClient else { return }
+                try await client.uninstall(item.packageName)
+                await loadServerExtensions()
+                await connectServer()
+            case .none:
+                return
+            }
+        } catch {
+            report(error)
+        }
+        dataVersion += 1
+    }
+
+    func setAutoUpdate(_ id: String, _ value: Bool) {
+        mutate { try extensions.setAutoUpdate(id, value) }
+        reloadExtensionState()
+    }
+
+    /// "Importar extensão": identifica o arquivo sem executá-lo. Manifestos
+    /// nativos compatíveis são instalados; APK/JAR são recusados com explicação.
+    func importExtensionFile(_ url: URL) {
+        let granted = url.startAccessingSecurityScopedResource()
+        defer { if granted { url.stopAccessingSecurityScopedResource() } }
+        switch ExtensionFileInspector.inspect(fileAt: url) {
+        case .nativeManifest(_, let data):
+            do {
+                let record = try extensions.installManifestFile(data)
+                activateNativeSources()
+                Haptics.success()
+                alertMessage = "\(record.name) \(record.versionName) foi instalada. As fontes dela aparecem em Explorar › Fontes."
+            } catch {
+                alertMessage = "Não foi possível instalar: \(error.localizedDescription)"
+            }
+        case .androidPackage(let kind):
+            alertMessage = extensions.jvmAvailable
+                ? "\(url.lastPathComponent) é uma extensão Android (\(kind)). Extensões Android são instaladas a partir "
+                    + "de um repositório que você adicionou (Mais › Extensões), para que a origem e as atualizações "
+                    + "fiquem registradas. Nada foi instalado."
+                : "\(url.lastPathComponent) é uma extensão Android (\(kind)). Esta compilação do app não inclui o "
+                    + "runtime de extensões Android. Nada foi instalado. "
+                    + "Para usar extensões Android, conecte um servidor de extensões."
+        case .invalidManifest(let message):
+            alertMessage = "Manifesto inválido: \(message)"
+        case .unknown:
+            alertMessage = "Arquivo não reconhecido. Importe um manifesto de extensão do FreeYomi (.json)."
+        }
+        dataVersion += 1
     }
 
     func deleteLocalFiles(of manga: Manga) {

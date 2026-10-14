@@ -19,3 +19,6 @@ Package.resolved
 .DS_Store
 Thumbs.db
 *.log
+
+# JVM embutida e extensão de teste (preparadas pelo CI)
+Tests/AppTests/Fixtures/

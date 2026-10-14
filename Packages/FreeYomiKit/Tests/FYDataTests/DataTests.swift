@@ -5,7 +5,7 @@ import FYDomain
 final class MigrationTests: XCTestCase {
     func testMigrateIsIdempotent() throws {
         let db = try SQLiteDatabase(path: ":memory:")
-        XCTAssertEqual(try Migrator.migrate(db), [1])
+        XCTAssertEqual(try Migrator.migrate(db), [1, 2])
         XCTAssertEqual(try Migrator.migrate(db), [])
         XCTAssertEqual(db.userVersion, Migrator.latestVersion)
     }

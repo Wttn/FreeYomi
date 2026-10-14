@@ -1,0 +1,180 @@
+# Protótipo: máquina virtual Java embutida no iPhone (como faz o Tachimanga).
+#
+# Etapa 1: compilar o OpenJDK do projeto oficial OpenJDK Mobile (openjdk/mobile)
+# como biblioteca estática para iOS, com o interpretador Zero (sem JIT, que o
+# iOS proíbe). Instruções: README do openjdk/mobile, seção "Build static image for iOS".
+# Licença do OpenJDK: GPLv2 (+ Classpath Exception na maior parte das bibliotecas).
+# Ver prototype/jvm/README.md.
+name: Protótipo JVM iOS
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [prototipo/jvm-embutida, feature/extensoes-jvm, main]
+    paths:
+      - .github/workflows/jvm-ios.yml
+      - prototype/jvm/patches/**
+
+concurrency:
+  group: jvm-ios-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  OPENJDK_MOBILE_COMMIT: c1ed06aa
+  SUPPORT_ZIP: https://download2.gluonhq.com/mobile/mobile-support-20250106.zip
+
+jobs:
+  openjdk-ios:
+    name: OpenJDK Mobile (${{ matrix.sdk }}, Zero, estático)
+    runs-on: macos-26
+    timeout-minutes: 240
+    strategy:
+      fail-fast: false
+      matrix:
+        # iphoneos = aparelho; iphonesimulator = para provar a JVM no simulador do CI.
+        # O simulador exigiria libffi para simulador (o pacote de apoio só traz para aparelho).
+        # Os testes rodam o binário de aparelho num Mac Apple Silicon ("Designed for iPad").
+        sdk: [iphoneos]
+    steps:
+      - name: Selecionar Xcode 26
+        run: |
+          XCODE=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1)
+          if [ -z "$XCODE" ]; then XCODE=/Applications/Xcode.app; fi
+          sudo xcode-select -s "$XCODE"
+          xcodebuild -version
+
+      - name: JDK de boot (26)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "26"
+
+      - name: Ferramentas
+        run: brew install autoconf
+
+      - name: Baixar openjdk/mobile
+        run: |
+          git init -q mobile
+          cd mobile
+          git remote add origin https://github.com/openjdk/mobile.git
+          git fetch -q --depth 1 origin "$OPENJDK_MOBILE_COMMIT" || git fetch -q --depth 1 origin master
+          git checkout -q FETCH_HEAD
+          git log -1 --format='openjdk/mobile %H %cd'
+
+      - uses: actions/checkout@v4
+        with:
+          path: freeyomi
+          sparse-checkout: prototype/jvm/patches
+
+      - name: Ajustes do FreeYomi no OpenJDK
+        run: python3 freeyomi/prototype/jvm/patches/apply.py mobile | sed 's/^/::notice title=patch::/'
+
+      - name: Baixar pacote de apoio (libffi e cups para iOS)
+        run: |
+          curl -fsSL "$SUPPORT_ZIP" -o support.zip
+          unzip -q support.zip -d support
+          find support -maxdepth 3 -type d | head -30
+
+      - name: Configurar
+        working-directory: mobile
+        run: |
+          trap 'echo "::error title=Configurar (linha $LINENO)::$BASH_COMMAND"' ERR
+          SUPPORT=$(cd ../support && pwd)
+          FFI=$(dirname "$(find "$SUPPORT" -path '*libffi*' -name ffi.h | sed -n 1p)")
+          FFILIB=$(dirname "$(find "$SUPPORT" -path '*libffi*' -name 'libffi*.a' | sed -n 1p)")
+          CUPS=$(find "$SUPPORT" -maxdepth 2 -type d -name 'cups-*' | sed -n 1p)
+          echo "libffi include=$FFI lib=$FFILIB cups=$CUPS"
+          SDK=$(xcrun --sdk ${{ matrix.sdk }} --show-sdk-path)
+          EXTRA=()
+          if [ "${{ matrix.sdk }}" = iphonesimulator ]; then
+            T="-target arm64-apple-ios17.0-simulator"
+            EXTRA=(--with-extra-cflags="$T" --with-extra-cxxflags="$T" --with-extra-ldflags="$T")
+          fi
+          set -o pipefail
+          if ! sh configure \
+            --disable-warnings-as-errors \
+            --openjdk-target=aarch64-macos-ios \
+            --with-boot-jdk="$JAVA_HOME" \
+            --with-libffi-include="$FFI" \
+            --with-libffi-lib="$FFILIB" \
+            --with-cups-include="$CUPS" \
+            --with-sysroot="$SDK" "${EXTRA[@]}" > configure.log 2>&1; then
+            grep -iE "error|cannot" configure.log | tail -15 | sed 's/^/::error title=configure::/' || true
+            tail -12 configure.log | sed 's/^/::error title=configure (fim)::/' || true
+            tail -40 configure.log
+            exit 1
+          fi
+          tail -40 configure.log || true
+          ls build | sed 's/^/::notice title=configurações::/' || true
+
+      - name: Compilar biblioteca estática (static-libs-image)
+        working-directory: mobile
+        run: |
+          if ! make CONF=ios-aarch64-zero-release static-libs-image > build-libs.log 2>&1; then
+            grep -iE "error|\*\*\*|undefined|No such file|fatal" build-libs.log | grep -v "warning" | tail -40 | sed 's/^/::error title=static-libs::/'
+            tail -120 build-libs.log
+            exit 1
+          fi
+          tail -20 build-libs.log
+
+      - name: Compilar as classes Java (imagem "explodida")
+        id: classes
+        continue-on-error: true
+        working-directory: mobile
+        run: |
+          # jdk-image tenta ligar um libjvm dinâmico, o que o iOS não suporta.
+          # As classes compiladas (build/<conf>/jdk/modules/<módulo>) servem como
+          # JDK "explodido": o HotSpot as carrega de <java.home>/modules/<módulo>.
+          if ! make CONF=ios-aarch64-zero-release java > build-java.log 2>&1; then
+            grep -iE "error|\*\*\*" build-java.log | grep -v warning | tail -30 | sed 's/^/::warning title=classes::/'
+            tail -60 build-java.log
+            exit 1
+          fi
+          J=build/ios-aarch64-zero-release/jdk
+          ls $J | tr '\n' ' ' | sed 's/^/::notice title=jdk explodido::/'; echo
+          ls $J/modules | wc -l | sed 's/^/::notice title=módulos::/'
+          ls $J/lib $J/conf 2>/dev/null | tr '\n' ' ' | sed 's/^/::notice title=lib+conf::/'; echo
+
+      - name: Inventário
+        working-directory: mobile/build/ios-aarch64-zero-release/images
+        run: |
+          find . -maxdepth 4 | head -100
+          du -sh * || true
+          # Também como anotações, visíveis na página do run sem baixar o log.
+          find . -maxdepth 4 -type f -size +100k -exec ls -l {} \; | awk '{print "::notice title=${{ matrix.sdk }}::" $5 " " $9}' | head -45
+          find . -maxdepth 3 -type d | awk '{print "::notice title=${{ matrix.sdk }} dir::" $0}' | head -40
+          lipo -info static-libs/lib/zero/libjvm.a 2>&1 | sed 's/^/::notice title=lipo::/' || true
+          otool -l static-libs/lib/zero/libjvm.a 2>/dev/null | grep -m2 -A4 LC_BUILD_VERSION | tr '\n' ' ' | sed 's/^/::notice title=platform::/'; echo
+          (cd ../../ && ls) | tr '\n' ' ' | sed 's/^/::notice title=build::/'; echo
+
+      - name: Empacotar
+        run: |
+          cd mobile/build/ios-aarch64-zero-release/images
+          INC=$GITHUB_WORKSPACE/mobile/build/ios-aarch64-zero-release/support/modules_include/java.base
+          mkdir -p include && cp -R "$INC"/* include/ 2>/dev/null || cp $GITHUB_WORKSPACE/mobile/src/java.base/share/native/include/*.h $GITHUB_WORKSPACE/mobile/src/java.base/unix/native/include/*.h include/
+          # JAVA_HOME para o app: classes (lib/modules), configuração e dados, sem executáveis.
+          mkdir -p javahome
+          J=$GITHUB_WORKSPACE/mobile/build/ios-aarch64-zero-release/jdk
+          if [ -d "$J/modules/java.base" ]; then
+            mkdir -p javahome/modules
+            # Módulos necessários para as extensões (rede, XML, log, criptografia).
+            for m in java.base java.logging java.xml java.naming java.security.sasl java.sql java.transaction.xa java.net.http java.management java.desktop java.datatransfer java.prefs java.instrument jdk.net jdk.jfr \
+                     jdk.crypto.ec jdk.crypto.cryptoki jdk.unsupported jdk.zipfs jdk.charsets jdk.localedata java.scripting; do
+              [ -d "$J/modules/$m" ] && cp -R "$J/modules/$m" javahome/modules/
+            done
+            [ -d "$J/conf" ] && cp -R "$J/conf" javahome/
+            if [ -d "$J/lib" ]; then
+              mkdir -p javahome/lib
+              (cd "$J/lib" && find . -type f ! -name '*.dylib' ! -name '*.so' ! -name '*.a' ! -name 'jspawnhelper' ! -name 'src.zip' | tar -cf - -T -) | (cd javahome/lib && tar -xf -)
+            fi
+          fi
+          du -sh javahome | sed 's/^/::notice title=javahome::/'
+          tar -czf "$GITHUB_WORKSPACE/openjdk-${{ matrix.sdk }}-zero.tgz" include static-libs javahome
+          ls -la "$GITHUB_WORKSPACE/openjdk-${{ matrix.sdk }}-zero.tgz"
+
+      - name: Publicar artefato
+        uses: actions/upload-artifact@v4
+        with:
+          name: openjdk-${{ matrix.sdk }}-zero
+          path: openjdk-${{ matrix.sdk }}-zero.tgz
+          retention-days: 30

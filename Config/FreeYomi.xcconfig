@@ -1,0 +1,7 @@
+// Configuração do app FreeYomi.
+//
+// Quando o CI prepara a JVM embutida (scripts/prepare-jvm.sh), ele gera
+// JVM/build/JVM.xcconfig com as bibliotecas estáticas do OpenJDK Mobile e
+// FY_JVM=1. Sem esse arquivo o app compila normalmente, sem o runtime de
+// extensões Android.
+#include? "../JVM/build/JVM.xcconfig"

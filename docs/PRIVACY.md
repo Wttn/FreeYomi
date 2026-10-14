@@ -16,7 +16,7 @@ Não existem conta, servidor próprio, telemetria, SDK de análise ou publicidad
 O app só faz requisições quando:
 
 1. o usuário abre **Explorar › Extensões** (índice de metadados por HTTPS);
-2. o usuário navega ou lê numa fonte online: **MangaDex** (api.mangadex.org, uploads.mangadex.org, nós MangaDex@Home e o relatório obrigatório em api.mangadex.network, que envia só a URL da imagem, o sucesso, os bytes e a duração);
+2. o usuário navega ou lê numa fonte online que ele mesmo instalou de um repositório dele: o app acessa só os endereços declarados no manifesto da extensão (por exemplo, a API, as capas e, se o manifesto pedir, o relatório da rede de imagens, que envia só a URL da imagem, o sucesso, os bytes e a duração). Os repositórios adicionados ficam só no aparelho e nunca são enviados ao FreeYomi;
 3. o usuário configura um **servidor de extensões** (o Suwayomi dele, na rede local ou por VPN).
 
 Salvaguardas em `FYCore`:

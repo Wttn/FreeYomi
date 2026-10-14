@@ -30,7 +30,7 @@ struct BrowseView: View {
 
                 switch segment {
                 case .sources: SourcesListView()
-                case .extensions: ExtensionsTabView()
+                case .extensions: ExtensionsView()
                 case .migrate: MigrateView()
                 }
             }
@@ -82,8 +82,8 @@ struct SourcesListView: View {
             } header: {
                 Text("Em desenvolvimento")
             } footer: {
-                Text("O FreeYomi só lista como disponível uma fonte com adaptador nativo para iOS. "
-                     + "Extensões Android do catálogo aparecem na aba Extensões, marcadas como incompatíveis.")
+                Text("Fontes online aparecem aqui quando você instala uma extensão compatível de um repositório "
+                     + "adicionado por você (aba Extensões). Extensões Android aparecem lá como incompatíveis.")
             }
         }
         .listStyle(.insetGrouped)

@@ -21,6 +21,8 @@ public enum FYError: Error, Equatable, Sendable {
     case insecureURL(String)
     /// Operação cancelada pelo usuário ou pelo sistema.
     case cancelled
+    /// Erro relatado pela extensão (site fora do ar, layout mudou…).
+    case source(String)
 }
 
 extension FYError: LocalizedError {
@@ -42,6 +44,8 @@ extension FYError: LocalizedError {
             return "Endereço recusado por segurança (apenas HTTPS é permitido): \(url)"
         case .cancelled:
             return "Operação cancelada."
+        case .source(let detail):
+            return "A extensão relatou um erro: \(detail)"
         }
     }
 }
