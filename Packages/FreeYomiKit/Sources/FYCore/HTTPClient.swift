@@ -95,7 +95,7 @@ public final class URLSessionHTTPClient: HTTPClient, @unchecked Sendable {
     /// Cabeçalhos acrescentados a todas as requisições (ex.: autenticação do servidor pessoal).
     private let defaultHeaders: [String: String]
 
-    public static let userAgent = "FreeYomi/0.4 (leitor de mangás open source)"
+    public static let userAgent = "FreeYomi/0.5 (leitor de mangás open source)"
 
     /// Sessão compartilhada e efêmera (sem cookies nem cache HTTP).
     /// É mantida viva durante todo o processo: além de reaproveitar conexões,

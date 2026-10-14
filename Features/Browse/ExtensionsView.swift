@@ -12,8 +12,9 @@ import FYServices
 /// arquivos que ele importou. Cada item mostra origem, compatibilidade e
 /// estado, com a ação correspondente:
 /// - extensões nativas compatíveis: instaladas no iPhone (manifesto + adaptador);
-/// - extensões Android: incompatíveis com iOS; instaláveis só no servidor de
-///   extensões do usuário, quando conectado.
+/// - extensões Android com .jar: instaladas no iPhone e executadas pelo runtime
+///   Java embutido (como no Tachimanga), quando o app foi compilado com ele;
+/// - extensões Android só com APK: no servidor de extensões do usuário, se conectado.
 struct ExtensionsView: View {
     @Environment(AppModel.self) private var model
 
@@ -57,7 +58,7 @@ struct ExtensionsView: View {
                 }
             } else {
                 statusSection
-                if hasAndroid && model.serverClient == nil { ConnectServerBanner() }
+                if hasAndroid && model.serverClient == nil && !model.extensions.jvmAvailable { ConnectServerBanner() }
                 if visible.isEmpty && !all.isEmpty {
                     Section {
                         ContentUnavailableView.search(text: search)
@@ -72,8 +73,12 @@ struct ExtensionsView: View {
                     } header: {
                         Text("Incompatíveis (\(incompatible.count))")
                     } footer: {
-                        Text("Extensões Android (APK/JAR) contêm código para Android e não rodam no iPhone. "
-                             + "O FreeYomi não baixa nem executa esse código.")
+                        Text(model.extensions.jvmAvailable
+                             ? "O runtime Java do app executa extensões que publicam o .jar (extensions-lib "
+                                + "\(JVMExtensionSupport.minLib)–\(JVMExtensionSupport.maxLib)). As que só publicam o APK "
+                                + "precisam de um servidor de extensões."
+                             : "Extensões Android (APK/JAR) contêm código para Android e esta compilação do app não "
+                                + "inclui o runtime para executá-las.")
                     }
                 }
             }
@@ -421,6 +426,10 @@ struct ExtensionDetailSheet: View {
                     }
                     if listing.contentWarning != .unspecified {
                         LabeledContent("Conteúdo", value: listing.contentWarning.label)
+                    }
+                    if listing.runtime == .device, listing.compatibility == .compatible(adapter: JVMExtensionSupport.adapter)
+                        || model.installedExtensions.first(where: { $0.id == listing.packageName })?.adapter == JVMExtensionSupport.adapter {
+                        LabeledContent("Execução", value: "No iPhone, pelo runtime Java do app")
                     }
                     if let verified = listing.integrityVerified {
                         LabeledContent("Integridade", value: verified ? "SHA-256 conferido" : "Sem hash publicado")

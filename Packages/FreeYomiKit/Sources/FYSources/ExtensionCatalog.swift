@@ -92,6 +92,22 @@ public struct CatalogExtension: Sendable, Codable, Hashable, Identifiable {
     public var native: NativeExtensionInfo? = nil
     public var id: String { packageName }
 
+    public init(name: String, packageName: String, apkURL: String, iconURL: String, jarURL: String?,
+                extensionLib: String, versionCode: Int64, versionName: String, contentWarning: ContentWarning,
+                sources: [CatalogSource], native: NativeExtensionInfo? = nil) {
+        self.name = name
+        self.packageName = packageName
+        self.apkURL = apkURL
+        self.iconURL = iconURL
+        self.jarURL = jarURL
+        self.extensionLib = extensionLib
+        self.versionCode = versionCode
+        self.versionName = versionName
+        self.contentWarning = contentWarning
+        self.sources = sources
+        self.native = native
+    }
+
     public var isNative: Bool { native != nil }
 
     /// Idiomas das fontes contidas na extensão (sem repetição, na ordem original).

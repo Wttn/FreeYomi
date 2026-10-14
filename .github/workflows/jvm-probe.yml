@@ -81,7 +81,7 @@ jobs:
             mkdir -p jvm/iphonesimulator
             (cd jvm/iphoneos && find static-libs -type d) | while read d; do mkdir -p "jvm/iphonesimulator/$d"; done
             (cd jvm/iphoneos && find static-libs -name '*.a') | while read f; do
-              python3 tools/ios_to_sim.py "jvm/iphoneos/$f" "jvm/iphonesimulator/$f" | sed 's/^/::notice title=simulador::/'
+              python3 ../../../scripts/ios_to_sim.py "jvm/iphoneos/$f" "jvm/iphonesimulator/$f" | sed 's/^/::notice title=simulador::/'
             done
             cp -R jvm/iphoneos/include jvm/iphonesimulator/include
           fi

@@ -146,7 +146,8 @@ public enum ExtensionListBuilder {
                              adapters: AdapterRegistry,
                              server: [String: ServerExtensionState]?,
                              inProgress: Set<String> = [],
-                             failures: [String: String] = [:]) -> [ExtensionListing] {
+                             failures: [String: String] = [:],
+                             jvmAvailable: Bool = false) -> [ExtensionListing] {
         var rows: [ExtensionListing] = []
         var matchedInstalled = Set<String>()
         var matchedServer = Set<String>()
@@ -161,7 +162,13 @@ public enum ExtensionListBuilder {
             let unavailable = catalog.isUnavailable
 
             for ext in snap.index.extensions {
-                let compat = CompatibilityResolver.resolve(ext, adapters: adapters)
+                var compat = CompatibilityResolver.resolve(ext, adapters: adapters)
+                if compat == .requiresAndroid, jvmAvailable {
+                    // Extensão Android com .jar: roda na JVM embutida. Sem .jar, o
+                    // servidor de extensões (se conectado) continua sendo a alternativa.
+                    let onDevice = JVMExtensionSupport.check(ext)
+                    if onDevice.isCompatible || server == nil { compat = onDevice }
+                }
                 let rowID = "\(catalog.indexURL)|\(ext.packageName)"
                 var state: ExtensionRowState
                 var runtime: ExtensionRuntime = .none
@@ -238,8 +245,12 @@ public enum ExtensionListBuilder {
             } else {
                 origin = .importedFile
             }
-            let support = adapters.support(adapter: rec.adapter, version: rec.adapterVersion)
-            let manifest = try? NativeExtensionManifest.parse(rec.manifest)
+            let isJVM = rec.adapter == JVMExtensionSupport.adapter
+            let support = isJVM
+                ? (jvmAvailable ? AdapterSupport.supported : .unknownAdapter("runtime de extensões (JVM)"))
+                : adapters.support(adapter: rec.adapter, version: rec.adapterVersion)
+            let manifest = isJVM ? nil : try? NativeExtensionManifest.parse(rec.manifest)
+            let jvmManifest = isJVM ? try? JVMExtensionManifest.decode(rec.manifest) : nil
             let state: ExtensionRowState
             if inProgress.contains(rec.id) {
                 state = .downloading
@@ -251,11 +262,12 @@ public enum ExtensionListBuilder {
                 state = .installed
             }
             var seen = Set<String>()
-            let langs = (manifest?.sources.map(\.language) ?? []).filter { seen.insert($0).inserted }
+            let langs = (manifest?.sources.map(\.language) ?? jvmManifest?.sources.map(\.lang) ?? [])
+                .filter { seen.insert($0).inserted }
             rows.append(ExtensionListing(
                 id: "installed|\(rec.id)", packageName: rec.id, name: rec.name, languages: langs,
                 versionName: rec.versionName, versionCode: rec.versionCode, iconURL: "",
-                contentWarning: manifest?.contentWarning ?? .unspecified, origin: origin,
+                contentWarning: manifest?.contentWarning ?? jvmManifest?.contentWarning ?? .unspecified, origin: origin,
                 compatibility: support.isSupported ? .compatible(adapter: rec.adapter) : .unsupportedAdapter(support.message),
                 runtime: .device, state: state, installedVersionName: rec.versionName, catalogEntry: nil,
                 integrityVerified: rec.integrityVerified))

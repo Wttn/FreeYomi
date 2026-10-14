@@ -1,6 +1,6 @@
 # Arquitetura de repositórios e extensões
 
-Versão 0.4.0 · análise de 13/10/2026
+Versão 0.5.0 · análise de 13/10/2026, runtime Java em 14/10/2026
 
 Este documento registra a análise técnica obrigatória (seção 1 do pedido), as decisões tomadas, as licenças envolvidas e as limitações. Ele substitui as partes de `TECHNICAL_DECISIONS.md` §13 que tratavam de repositório padrão e sugestões.
 
@@ -23,6 +23,8 @@ A única string de repositório que sobrou no código (`ExtensionManager.legacyP
 App (SwiftUI)  ── AppModel ──► ExtensionManager (FYServices)
                                  ├─ ExtensionCatalogClient (FYSources): download, limites, formatos, cache
                                  ├─ NativeExtensionInstaller + AdapterRegistry (FYSources)
+                                 ├─ JVMExtensionInstaller + JVMExtensionLoader (FYSources) ─► JVMBridge
+                                 │     └─ EmbeddedJVM (app, C/JNI) ─► OpenJDK Mobile + fy-runtime.jar
                                  ├─ DataStore (FYData): extension_repositories, installed_extensions
                                  └─ SourceRegistry (FYSources): fontes ativas (protocolo MangaSource)
                ── SuwayomiClient ─► servidor de extensões do usuário (opcional, extensões Android)
@@ -47,15 +49,33 @@ Entradas incompletas (sem `packageName`, por exemplo) são ignoradas e contadas.
 
 ## 4. Tachimanga e extensões Android
 
-- **Tachimanga:** o código é fechado. O repositório público `tachimanga/tachimanga` tem só um README e **nenhuma licença**, ou seja, todos os direitos reservados. Os guias públicos dizem apenas que o repositório "normalmente termina em `index.min.json`", que as extensões são arquivos `.apk` e que um arquivo pode ser importado pelo botão "+". Não há documentação de como ele executa essas extensões no iOS, e nada dele pode ser reaproveitado.
-- **Extensões Mihon/Keiyoushi:** são APKs Android (e JARs) com código Kotlin que depende de `extensions-lib`, OkHttp, Jsoup e APIs Android. O código-fonte (`keiyoushi/extensions-source`) é Apache-2.0, mas o problema não é a licença, e sim a execução:
-  1. o iOS não tem ART/JVM, e apps comuns não podem usar JIT;
-  2. baixar e executar código fora do pacote do app contraria a diretriz **2.5.2** da App Store;
-  3. a regra do projeto proíbe executar código de terceiros com acesso ao app.
+- **Como o Tachimanga faz:** o app embute uma máquina virtual Java e roda um fork do Tachidesk-Server (`tachimanga/Tachidesk-Server`, MPL-2.0) dentro do processo. As extensões publicam, além do APK, um `.jar` (campo `jarUrl`, nº 501 no `index.pb`) com o mesmo código já convertido para bytecode Java, e é esse `.jar` que roda no iPhone.
+- **Extensões Mihon/Keiyoushi:** código Kotlin que depende de `extensions-lib`, OkHttp, Jsoup e APIs Android (fornecidas pela camada de compatibilidade do Tachidesk). Código-fonte Apache-2.0.
 
-**Conclusão:** não há mecanismo documentado, viável e permitido para executar extensões Android no iPhone. No app, elas são listadas com metadados reais e marcadas como **"Extensão Android (incompatível com iOS)"**. Nenhum APK é baixado. Compatibilidade com Mihon/Tachiyomi **não é declarada**.
+O FreeYomi 0.5 faz o mesmo (seção 4.1). Extensões que publicam só o APK continuam podendo rodar num **servidor de extensões** do usuário (Suwayomi-Server, ver `EXTENSION_SERVER.md`).
 
-**Caminho opcional:** o usuário pode conectar um **servidor de extensões** dele (Suwayomi-Server, MPL-2.0, não embutido no app, ver `EXTENSION_SERVER.md`). As extensões Android rodam nesse servidor, e a tela Extensões mostra o estado delas lá ("Disponível no servidor", "Instalada no servidor").
+### 4.1 Runtime Java embutido
+
+| Peça | Origem e licença | Onde |
+|---|---|---|
+| JVM | OpenJDK Mobile (`openjdk/mobile`, commit `c1ed06aa`), interpretador **Zero** (sem JIT, nunca gera código nativo), compilado como biblioteca estática para iOS. GPLv2 (HotSpot) + Classpath Exception (bibliotecas). Dois patches pequenos em `prototype/jvm/patches/apply.py` | `.github/workflows/jvm-ios.yml` |
+| Runtime das extensões | Fork do Tachidesk-Server do Tachimanga (commit `2e52214`, MPL-2.0) + `freeyomi.FYHost` (`prototype/jvm/host/FYHost.kt`), num único `fy-runtime.jar` | `.github/workflows/jvm-runtime.yml` |
+| Ponte | `App/JVM/fyjvm.c` (JNI; uma thread com pilha de 32 MB por chamada) e `App/JVM/EmbeddedJVM.swift` (`JVMBridge`) | app |
+| Instalação e fontes | `JVMExtensionInstaller`, `JVMExtensionLoader`, `JVMExtensionSource` (`MangaSource`) | `FYSources/JVMExtensions.swift` |
+
+**Licença:** GPLv2 do HotSpot não é compatível com a distribuição sob Apache-2.0. Esta configuração é para **uso pessoal** (instalação própria, fora da App Store). O app compila sem a JVM quando `JVM/build/JVM.xcconfig` não existe (`scripts/prepare-jvm.sh`), e nesse caso extensões Android voltam a aparecer como incompatíveis.
+
+**Protocolo:** o app envia JSON para `FYHost.call` — `init`, `load {jar, className}`, `popular`, `latest`, `search`, `details`, `chapters`, `pages` — e recebe `{"ok": true, "result": …}` ou `{"ok": false, "error": …}`. Imagens (páginas e capas) são baixadas pelo `URLSession` do app com os cabeçalhos que a fonte declara (`Referer`, `User-Agent`…); cookies e cabeçalhos de conexão não são repassados.
+
+**Instalar** (botão na tela Extensões, só para extensões de repositórios que o usuário adicionou):
+1. confere `jarUrl` e `extensions-lib` 1.3–1.6 (as do Tachidesk-Server);
+2. baixa o `.jar` com os limites do catálogo (HTTPS, 20 MB, redirecionamento sem rebaixar para HTTP);
+3. confere que é um ZIP com classes e lê a classe principal do `AndroidManifest.xml` (texto) que vem no `.jar` — nome de classe validado, pacote igual ao anunciado;
+4. **a JVM carrega a extensão e lista as fontes**; só então o registro é gravado (`installed_extensions`, adaptador `jvm-tachiyomi`, manifesto com arquivo, SHA-256 do `.jar`, classe e fontes). Falha em qualquer passo apaga o `.jar` e não grava nada.
+
+**Abrir o app** registra as fontes sem iniciar a JVM. Ela inicia no primeiro uso de uma dessas fontes, e cada `.jar` é carregado uma vez, depois de conferir o SHA-256 gravado. Desinstalar apaga o `.jar` e retira as fontes; biblioteca, progresso e capítulos baixados ficam.
+
+**Limitações:** extensões que exigem WebView (Cloudflare), cookies de login, preferências da fonte ou interceptadores de imagem (imagens embaralhadas) ainda não funcionam; o interpretador é lento na primeira requisição (TLS em Java). O próximo passo é a ponte de rede nativa (`NativeNet`, como no Tachimanga), que troca o TLS do Java pelo `URLSession`.
 
 ## 5. Extensões nativas para iOS (adaptadores)
 
@@ -123,8 +143,8 @@ Quem publicar um manifesto é responsável por ter permissão para usar a API co
 | Tempo limite | 30 s por requisição. A validação pode ser cancelada pelo usuário (botão "Parar"), e os downloads de extensões também |
 | Dados malformados | Decodificadores tolerantes por entrada e estritos na estrutura. Protobuf com limite de aninhamento e comprimentos validados |
 | Integridade | SHA-256 do manifesto conferido quando o repositório publica o hash. Sem hash, a extensão fica marcada como "Sem hash publicado". O hash gravado é conferido de novo a cada ativação |
-| Assinatura | O índice informa `signingKey` (impressão digital do certificado dos APKs Android), exibida ao validar. Como nenhum APK é instalado no iPhone, não há assinatura a verificar no aparelho. Manifestos nativos ainda não têm assinatura (ver pendências) |
-| Código de terceiros | Nunca é baixado nem executado. Manifestos são só dados, e adaptadores são código do app |
+| Assinatura | O índice informa `signingKey` (impressão digital do certificado dos APKs Android), exibida ao validar. O `.jar` não é assinado; o índice do Tachiyomi não publica hash dele, e a extensão fica marcada como "Sem hash publicado". Manifestos nativos ainda não têm assinatura (ver pendências) |
+| Código de terceiros | Manifestos nativos são só dados. Extensões Android (`.jar`) **são código**: rodam como bytecode interpretado na JVM do app, com o mesmo acesso que o app tem dentro da sandbox do iOS (rede e a pasta do app). Só são baixadas de repositórios que o usuário adicionou e por ação dele; a origem e a versão ficam registradas e visíveis; nada roda antes de o usuário tocar em "Instalar". É o mesmo modelo de confiança do Mihon/Tachimanga: instale apenas extensões de repositórios em que você confia |
 | Logs | Erros passam por `Redactor` (sem usuário/senha/tokens nas URLs) |
 
 ## 7. Privacidade
@@ -147,5 +167,5 @@ Quem publicar um manifesto é responsável por ter permissão para usar a API co
 1. **Compilação:** este incremento foi escrito num ambiente sem compilador Swift (os downloads do Swift estão bloqueados lá). Toda a sintaxe foi verificada com um parser Swift (tree-sitter), mas a checagem de tipos e os testes só rodam no CI (`core-linux` e `ios`).
 2. Manifestos nativos não têm assinatura criptográfica própria. A integridade depende do SHA-256 publicado no índice, baixado por HTTPS. Assinatura Ed25519 do índice é a próxima etapa recomendada.
 3. Só há um adaptador (`mangadex-api-v5`). Cada fonte nova exige um adaptador revisado e uma nova versão do app.
-4. Extensões Android continuam dependendo de um servidor do usuário. O app não as executa e não pretende executá-las.
+4. Extensões Android rodam na JVM embutida só quando o app é compilado com ela (uso pessoal, ver 4.1). Sem `jarUrl`, dependem do servidor de extensões do usuário.
 5. Nenhum ícone de extensão é carregado por HTTP. Ícones fora de HTTPS mostram um marcador.

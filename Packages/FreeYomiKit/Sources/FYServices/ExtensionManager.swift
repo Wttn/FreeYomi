@@ -38,17 +38,21 @@ public final class ExtensionManager: @unchecked Sendable {
     public let installer: NativeExtensionInstaller
     public let registry: SourceRegistry
     public var adapters: AdapterRegistry { installer.adapters }
+    /// Extensões Android (.jar) executadas pela JVM embutida; `nil` sem o runtime.
+    public let jvm: JVMExtensionLoader?
+    public var jvmAvailable: Bool { jvm?.installer.bridge.isAvailable ?? false }
 
     /// Endereço que vinha pré-configurado nas versões 0.1–0.3.1. Serve SÓ para
     /// reconhecer esse padrão antigo e retirá-lo na migração; nunca é oferecido.
     static let legacyPreconfiguredRepository = "https://raw.githubusercontent.com/keiyoushi/extensions/repo/index.pb"
 
     public init(store: DataStore, catalog: ExtensionCatalogClient, registry: SourceRegistry,
-                adapters: AdapterRegistry = .builtIn) {
+                adapters: AdapterRegistry = .builtIn, jvm: JVMExtensionInstaller? = nil) {
         self.store = store
         self.catalog = catalog
         self.registry = registry
         self.installer = NativeExtensionInstaller(catalog: catalog, adapters: adapters)
+        self.jvm = jvm.map(JVMExtensionLoader.init(installer:))
     }
 
     // MARK: - Repositórios
@@ -197,6 +201,10 @@ public final class ExtensionManager: @unchecked Sendable {
     @discardableResult
     public func install(_ ext: CatalogExtension, from repositoryURL: String) async throws -> InstalledExtensionRecord {
         let repo = repository(repositoryURL)
+        if ext.native == nil {
+            return try await installJVM(ext, repositoryURL: repo?.url ?? repositoryURL,
+                                        allowHTTP: repo?.allowsInsecureHTTP ?? false)
+        }
         let package = try await installer.download(ext, allowHTTP: repo?.allowsInsecureHTTP ?? false)
         return try commit(package, repositoryURL: repo?.url ?? repositoryURL)
     }
@@ -226,10 +234,55 @@ public final class ExtensionManager: @unchecked Sendable {
         return record
     }
 
+    /// Extensão Android: baixa o .jar, carrega na JVM (que lista as fontes) e
+    /// só então grava. Uma versão mais antiga é substituída.
+    private func installJVM(_ ext: CatalogExtension, repositoryURL: String, allowHTTP: Bool) async throws -> InstalledExtensionRecord {
+        guard let jvm, jvmAvailable else {
+            throw FYError.unsupported("\(ext.name) é uma extensão Android e esta compilação do app não inclui o runtime de extensões")
+        }
+        let existing = try store.installedExtensions.record(id: ext.packageName)
+        if let existing, existing.versionCode > ext.versionCode {
+            throw FYError.unsupported("a versão instalada (\(existing.versionName)) é mais nova que a oferecida (\(ext.versionName))")
+        }
+        let manifest = try await jvm.installer.install(ext, allowHTTP: allowHTTP)
+        await jvm.markLoaded(manifest)
+        let data = try manifest.encoded()
+        let now = Date()
+        let record = InstalledExtensionRecord(
+            id: manifest.packageName, name: manifest.name, repositoryURL: repositoryURL, versionCode: manifest.versionCode,
+            versionName: manifest.versionName, adapter: JVMExtensionSupport.adapter,
+            adapterVersion: JVMExtensionSupport.adapterVersion, manifest: data, sha256: SHA256.hex(data),
+            // O índice do Tachiyomi não publica o hash do .jar: a origem é o repositório que o usuário escolheu.
+            integrityVerified: false, autoUpdate: existing?.autoUpdate ?? false,
+            installedAt: existing?.installedAt ?? now, updatedAt: now, lastError: nil)
+        try store.installedExtensions.upsert(record)
+        if let existing, existing.adapter == JVMExtensionSupport.adapter,
+           let old = try? JVMExtensionManifest.decode(existing.manifest) {
+            if old.jarFile != manifest.jarFile { jvm.installer.removeJar(old) }
+            for source in old.sources { registry.unregister(JVMExtensionSupport.sourceID(source.id)) }
+        }
+        for source in jvmSources(manifest, loader: jvm) { registry.register(source) }
+        return record
+    }
+
+    private func jvmSources(_ manifest: JVMExtensionManifest, loader: JVMExtensionLoader) -> [any MangaSource] {
+        manifest.sources.map { source in
+            JVMExtensionSource(source: source, extensionName: manifest.name, bridge: loader.installer.bridge,
+                               prepare: { try await loader.ensureLoaded(manifest) })
+        }
+    }
+
     /// Desinstala a extensão. Os títulos dela continuam na biblioteca (com
     /// capítulos lidos e baixados); só não abrem até reinstalar.
     public func uninstall(_ id: String) throws {
+        let record = try store.installedExtensions.record(id: id)
         try store.installedExtensions.delete(id: id)
+        if let record, record.adapter == JVMExtensionSupport.adapter,
+           let manifest = try? JVMExtensionManifest.decode(record.manifest) {
+            jvm?.installer.removeJar(manifest)
+            for source in manifest.sources { registry.unregister(JVMExtensionSupport.sourceID(source.id)) }
+            return
+        }
         let prefix = "\(NativeExtensionManifest.sourcePrefix)\(id)/"
         registry.replaceSources(withPrefix: prefix, with: [])
     }
@@ -244,11 +297,22 @@ public final class ExtensionManager: @unchecked Sendable {
     @discardableResult
     public func activateInstalledSources(context: AdapterContext) -> [String: String] {
         var sources: [any MangaSource] = []
+        var jvmSources: [any MangaSource] = []
         var failures: [String: String] = [:]
         for record in installedExtensions() {
             do {
                 guard SHA256.hex(record.manifest) == record.sha256 else {
                     throw FYError.invalidData("o manifesto salvo foi alterado; reinstale a extensão")
+                }
+                if record.adapter == JVMExtensionSupport.adapter {
+                    guard let jvm, jvmAvailable else {
+                        throw FYError.unsupported("extensão Android: esta compilação do app não inclui o runtime de extensões")
+                    }
+                    // Só registra as fontes; a JVM inicia quando alguma delas for usada.
+                    let manifest = try JVMExtensionManifest.decode(record.manifest)
+                    jvmSources += self.jvmSources(manifest, loader: jvm)
+                    if record.lastError != nil { try? store.installedExtensions.setError(id: record.id, nil) }
+                    continue
                 }
                 let manifest = try NativeExtensionManifest.parse(record.manifest)
                 sources += try installer.makeSources(manifest, context: context)
@@ -259,6 +323,7 @@ public final class ExtensionManager: @unchecked Sendable {
             }
         }
         registry.replaceSources(withPrefix: NativeExtensionManifest.sourcePrefix, with: sources)
+        registry.replaceSources(withPrefix: JVMExtensionSupport.sourcePrefix, with: jvmSources)
         return failures
     }
 

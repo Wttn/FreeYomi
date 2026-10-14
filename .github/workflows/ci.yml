@@ -28,9 +28,44 @@ jobs:
   ios:
     name: App iOS (Xcode 26)
     runs-on: macos-26
-    timeout-minutes: 60
+    timeout-minutes: 75
+    permissions:
+      actions: read
+      contents: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      # Índice usado SÓ para baixar uma extensão para o teste de integração do CI.
+      # Não entra no app: o FreeYomi não vem com repositórios.
+      TEST_REPO_INDEX: https://raw.githubusercontent.com/keiyoushi/extensions/repo/index.json
     steps:
       - uses: actions/checkout@v4
+
+      # JDK do runner: certificados, política de criptografia e fusos para a JVM embutida.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      # A JVM embutida (OpenJDK Mobile) e o runtime das extensões são compilados pelos
+      # workflows jvm-ios.yml e jvm-runtime.yml; aqui usamos o último artefato de cada um.
+      # Sem eles, o app compila sem o runtime de extensões Android.
+      - name: Baixar a JVM embutida
+        continue-on-error: true
+        run: |
+          mkdir -p JVM/artifacts/jvm JVM/artifacts/runtime
+          for wf in jvm-ios.yml:jvm jvm-runtime.yml:runtime; do
+            RUN=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow "${wf%%:*}" --status success --limit 1 \
+                  --json databaseId --jq '.[0].databaseId' || true)
+            echo "::notice title=${wf%%:*}::run ${RUN:-nenhum}"
+            [ -n "$RUN" ] && gh run download "$RUN" --repo "$GITHUB_REPOSITORY" --dir "JVM/artifacts/${wf##*:}" || true
+          done
+
+      - name: Preparar a JVM embutida
+        continue-on-error: true
+        env:
+          JVM_ARTIFACTS: JVM/artifacts/jvm
+          RUNTIME_ARTIFACTS: JVM/artifacts/runtime
+        run: scripts/prepare-jvm.sh
 
       - name: Selecionar Xcode 26
         run: |
@@ -43,7 +78,9 @@ jobs:
         run: brew install xcodegen
 
       - name: Gerar projeto
-        run: xcodegen generate
+        run: |
+          mkdir -p JVM/build/bundle/lib JVM/build/bundle/jars
+          xcodegen generate
 
       - name: Testes do núcleo (macOS)
         working-directory: Packages/FreeYomiKit
@@ -66,6 +103,11 @@ jobs:
             -resultBundlePath build/TestResults.xcresult \
             CODE_SIGNING_ALLOWED=NO > build-test.log 2>&1 || status=$?
           grep -E "error:|Test Case .*(passed|failed)|\*\* (TEST|BUILD)" build-test.log || true
+          grep -E "FYJVM-APP" build-test.log | cut -c1-600 | sed 's/^/::notice title=JVM no app::/' || true
+          grep -E "JVMIntegrationTests.*skipped|Test skipped" build-test.log | head -3 | sed 's/^/::warning title=JVM no app::/' || true
+          if [ -f "$HOME/fyjvm.log" ]; then grep -v "^\s*$" "$HOME/fyjvm.log" | tail -25 | cut -c1-400 | sed 's/^/::notice title=saída da JVM::/'; cp "$HOME/fyjvm.log" build/ 2>/dev/null || true; fi
+          HSERR=$(find ~/Library/Developer/CoreSimulator/Devices -name 'hs_err_pid*.log' 2>/dev/null | head -1)
+          if [ -n "$HSERR" ]; then grep -v "^\s*$" "$HSERR" | head -40 | sed 's/^/::warning title=hs_err::/'; cp "$HSERR" build/ || true; fi
           # Erros de compilação e testes que falharam também viram anotações (visíveis sem baixar o log).
           grep -E "error:" build-test.log | sort -u | head -40 | sed 's/^/::error::/' || true
           grep -E "Test Case .*failed|XCTAssert.*failed|: error: -\[" build-test.log | sort -u | head -40 | sed 's/^/::error::/' || true
@@ -102,6 +144,8 @@ jobs:
           name: test-results
           path: |
             build/TestResults.xcresult
+            build/fyjvm.log
+            build/hs_err_pid*.log
             build-test.log
             build-archive.log
           retention-days: 14

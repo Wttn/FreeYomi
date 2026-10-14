@@ -36,7 +36,7 @@ pública.
 ## Como os testes rodam no CI
 
 - O OpenJDK é compilado para **aparelho** (iphoneos). Para o simulador do Mac
-  Apple Silicon, `probe/tools/ios_to_sim.py` só troca a plataforma gravada nos
+  Apple Silicon, `scripts/ios_to_sim.py` só troca a plataforma gravada nos
   objetos (o código arm64 é o mesmo); a libffi do simulador é compilada do
   código-fonte (3.5.2).
 - O JAVA_HOME fica em `JVMProbe.app/lib` (onde o HotSpot estático do iOS

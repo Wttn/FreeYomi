@@ -90,7 +90,8 @@ final class AppModel {
 
     private var didBootstrap = false
 
-    init(store: DataStore, registry: SourceRegistry, catalogCache: URL, localStore: LocalLibraryStore) {
+    init(store: DataStore, registry: SourceRegistry, catalogCache: URL, localStore: LocalLibraryStore,
+         extensionsDirectory: URL) {
         self.store = store
         self.registry = registry
         self.localStore = localStore
@@ -99,7 +100,9 @@ final class AppModel {
         self.service = LibraryService(store: store, registry: registry)
         // O catálogo valida o destino por conta própria (HTTPS; HTTP só com opção explícita).
         let catalog = ExtensionCatalogClient(http: URLSessionHTTPClient(policy: .httpsOrHTTP), cacheDirectory: catalogCache)
-        self.extensions = ExtensionManager(store: store, catalog: catalog, registry: registry)
+        // Extensões Android (.jar) rodam na JVM embutida, quando o app foi compilado com ela.
+        let jvm = JVMExtensionInstaller(catalog: catalog, bridge: EmbeddedJVM.shared, directory: extensionsDirectory)
+        self.extensions = ExtensionManager(store: store, catalog: catalog, registry: registry, jvm: jvm)
         self.settings = store.settings.load()
     }
 
@@ -112,6 +115,7 @@ final class AppModel {
         // Índices dos repositórios ficam em Application Support (a pasta Caches
         // pode ser apagada pelo iOS, e a lista precisa continuar visível offline).
         let repoCache = support.appendingPathComponent("FreeYomi/RepositoryCache", isDirectory: true)
+        let extensionsDir = support.appendingPathComponent("FreeYomi/Extensions", isDirectory: true)
         let uiTesting = ProcessInfo.processInfo.arguments.contains("-ui-testing")
         let localRoot = uiTesting
             ? fm.temporaryDirectory.appendingPathComponent("ui-tests-local-\(UUID().uuidString)", isDirectory: true)
@@ -122,14 +126,16 @@ final class AppModel {
         if uiTesting, let mem = try? DataStore.inMemory() {
             return AppModel(store: mem, registry: registry,
                             catalogCache: fm.temporaryDirectory.appendingPathComponent("ui-tests-repos-\(UUID().uuidString)"),
-                            localStore: localStore)
+                            localStore: localStore,
+                            extensionsDirectory: fm.temporaryDirectory.appendingPathComponent("ui-tests-ext-\(UUID().uuidString)"))
         }
 
         let dbURL = support.appendingPathComponent("FreeYomi", isDirectory: true)
             .appendingPathComponent("library.sqlite")
         do {
             let store = try DataStore.open(fileURL: dbURL)
-            let model = AppModel(store: store, registry: registry, catalogCache: repoCache, localStore: localStore)
+            let model = AppModel(store: store, registry: registry, catalogCache: repoCache, localStore: localStore,
+                                 extensionsDirectory: extensionsDir)
             if store.recoveredFromCorruption {
                 model.startupNotice = "O banco de dados estava danificado e foi recriado. "
                     + "O arquivo original foi preservado para recuperação manual."
@@ -139,7 +145,8 @@ final class AppModel {
             // Último recurso: banco temporário para o app abrir mesmo assim.
             let mem = try! DataStore.inMemory()
             let model = AppModel(store: mem, registry: registry,
-                                 catalogCache: fm.temporaryDirectory.appendingPathComponent("repos-temp"), localStore: localStore)
+                                 catalogCache: fm.temporaryDirectory.appendingPathComponent("repos-temp"), localStore: localStore,
+                                 extensionsDirectory: extensionsDir)
             model.startupNotice = "Não foi possível abrir a biblioteca local (\(error.localizedDescription)). "
                 + "Os dados desta sessão não serão salvos."
             return model
@@ -559,7 +566,8 @@ final class AppModel {
         }
         return ExtensionListBuilder.build(catalogs: repositoryCatalogs, repositories: repositories,
                                           installed: installedExtensions, adapters: extensions.adapters, server: server,
-                                          inProgress: extensionTasks, failures: extensionFailures)
+                                          inProgress: extensionTasks, failures: extensionFailures,
+                                          jvmAvailable: extensions.jvmAvailable)
     }
 
     func loadServerExtensions() async {
@@ -650,9 +658,13 @@ final class AppModel {
                 alertMessage = "Não foi possível instalar: \(error.localizedDescription)"
             }
         case .androidPackage(let kind):
-            alertMessage = "\(url.lastPathComponent) é uma extensão Android (\(kind)). O iOS não executa código de "
-                + "extensões Android, e o FreeYomi não executa código baixado. Nada foi instalado. "
-                + "Para usar extensões Android, conecte um servidor de extensões."
+            alertMessage = extensions.jvmAvailable
+                ? "\(url.lastPathComponent) é uma extensão Android (\(kind)). Extensões Android são instaladas a partir "
+                    + "de um repositório que você adicionou (Mais › Extensões), para que a origem e as atualizações "
+                    + "fiquem registradas. Nada foi instalado."
+                : "\(url.lastPathComponent) é uma extensão Android (\(kind)). Esta compilação do app não inclui o "
+                    + "runtime de extensões Android. Nada foi instalado. "
+                    + "Para usar extensões Android, conecte um servidor de extensões."
         case .invalidManifest(let message):
             alertMessage = "Manifesto inválido: \(message)"
         case .unknown:
