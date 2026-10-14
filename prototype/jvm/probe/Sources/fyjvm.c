@@ -59,6 +59,7 @@ static void *fy_thread(void *arg) {
             { .optionString = "-Xss4m" },
             { .optionString = "-XX:-UsePerfData" },
             { .optionString = "-Djava.awt.headless=true" },
+            { .optionString = "-Xlog:class+path=info,os=info:stdout" },
         };
         JavaVMInitArgs args;
         args.version = JNI_VERSION_10;
