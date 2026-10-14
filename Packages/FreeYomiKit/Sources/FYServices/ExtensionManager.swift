@@ -268,6 +268,8 @@ public final class ExtensionManager: @unchecked Sendable {
     private func jvmSources(_ manifest: JVMExtensionManifest, loader: JVMExtensionLoader) -> [any MangaSource] {
         manifest.sources.map { source in
             JVMExtensionSource(source: source, extensionName: manifest.name, bridge: loader.installer.bridge,
+                               memo: JVMMemoStore(file: loader.installer.directory
+                                   .appendingPathComponent("memo-\(source.id).json")),
                                prepare: { try await loader.ensureLoaded(manifest) })
         }
     }
@@ -280,6 +282,7 @@ public final class ExtensionManager: @unchecked Sendable {
         if let record, record.adapter == JVMExtensionSupport.adapter,
            let manifest = try? JVMExtensionManifest.decode(record.manifest) {
             jvm?.installer.removeJar(manifest)
+            jvm?.installer.removeMemos(manifest)
             for source in manifest.sources { registry.unregister(JVMExtensionSupport.sourceID(source.id)) }
             return
         }

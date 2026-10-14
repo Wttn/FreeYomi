@@ -143,6 +143,7 @@ object FYHost {
                     scanlator = c["scanlator"]?.jsonPrimitive?.contentOrNull
                     chapter_number = c["number"]?.jsonPrimitive?.contentOrNull?.toFloatOrNull() ?: -1f
                     date_upload = c["dateUpload"]?.jsonPrimitive?.contentOrNull?.toLongOrNull() ?: 0L
+                    (c["memo"] as? JsonObject)?.let { memo = it }
                 }
                 val pages = runBlocking { s.getPageList(chapter) }
                 return buildJsonArray {
@@ -230,6 +231,8 @@ object FYHost {
         put("genre", m.genre)
         put("status", m.status)
         put("initialized", m.initialized)
+        // Metadados da extensão (extensions-lib 1.6): o app guarda e devolve sem interpretar.
+        if (m.memo.isNotEmpty()) put("memo", m.memo)
     }
 
     private fun mangaFrom(o: JsonObject): SManga = SManga.create().apply {
@@ -241,6 +244,7 @@ object FYHost {
         description = o["description"]?.jsonPrimitive?.contentOrNull
         genre = o["genre"]?.jsonPrimitive?.contentOrNull
         status = o["status"]?.jsonPrimitive?.intOrNull ?: 0
+        (o["memo"] as? JsonObject)?.let { memo = it }
     }
 
     private fun chapterJson(c: SChapter): JsonElement = buildJsonObject {
@@ -249,6 +253,7 @@ object FYHost {
         put("number", c.chapter_number.toDouble())
         put("scanlator", c.scanlator)
         put("dateUpload", c.date_upload)
+        if (c.memo.isNotEmpty()) put("memo", c.memo)
     }
 
     /**

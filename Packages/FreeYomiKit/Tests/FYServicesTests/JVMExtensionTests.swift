@@ -338,10 +338,35 @@ final class JVMExtensionManagerTests: XCTestCase {
         XCTAssertEqual(pages[0].image, .remote(url: "https://img.test/1.jpg", headers: ["Referer": "https://f.test/"]))
         XCTAssertEqual(SourceImageHeaders.shared.headers(for: "jvm:77")["Referer"], "https://f.test/")
 
+        XCTAssertEqual((jvm.calls.last?["chapter"] as? [String: Any])?["name"] as? String, "Capítulo 1",
+                       "a extensão recebe o capítulo como o devolveu")
+
         jvm.responses["pages"] = [["index": 0, "url": "", "imageUrl": "javascript:alert(1)"]]
         do {
             _ = try await source.pages(mangaKey: "/obra", chapterKey: "/c/1")
             XCTFail("endereço que não é imagem")
         } catch {}
+    }
+
+    /// Metadados das extensions-lib 1.6 ("memo") voltam para a extensão, inclusive depois de reabrir o app.
+    func testMemoSurvivesRestart() async throws {
+        let file = dir.appendingPathComponent("memo-77.json")
+        let info = JVMExtensionManifest.Source(id: "77", name: "F", lang: "pt-BR", supportsLatest: false,
+                                               baseUrl: "https://f.test", headers: [:])
+        let jvm = FakeJVM()
+        jvm.responses["popular"] = ["mangas": [["url": "/obra", "title": "Obra", "memo": ["slug": "obra-x"]]], "hasNextPage": false]
+        jvm.responses["chapters"] = [["url": "/c/1", "name": "Cap 1", "memo": ["mangaUrl": "/obra", "id": 9]]]
+        let first = JVMExtensionSource(source: info, extensionName: "Ext", bridge: jvm, memo: JVMMemoStore(file: file), prepare: {})
+        let manga = try XCTUnwrap(try await first.popular(page: 1).items.first)
+        _ = try await first.chapters(for: manga)
+        XCTAssertEqual(((jvm.calls.last?["manga"] as? [String: Any])?["memo"] as? [String: Any])?["slug"] as? String, "obra-x")
+
+        let jvm2 = FakeJVM()
+        jvm2.responses["pages"] = [["index": 0, "url": "", "imageUrl": "https://img.test/1.jpg"]]
+        let reopened = JVMExtensionSource(source: info, extensionName: "Ext", bridge: jvm2, memo: JVMMemoStore(file: file), prepare: {})
+        _ = try await reopened.pages(mangaKey: "/obra", chapterKey: "/c/1")
+        let sent = try XCTUnwrap(jvm2.calls.last?["chapter"] as? [String: Any])
+        XCTAssertEqual(sent["url"] as? String, "/c/1")
+        XCTAssertEqual((sent["memo"] as? [String: Any])?["mangaUrl"] as? String, "/obra")
     }
 }

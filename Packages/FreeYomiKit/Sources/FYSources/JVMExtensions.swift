@@ -199,6 +199,8 @@ public final class JVMExtensionSource: MangaSource, @unchecked Sendable {
 
     let extensionName: String
     let bridge: JVMBridge
+    /// Metadados que a extensão anexa a títulos e capítulos (guardados no aparelho).
+    let memo: JVMMemoStore?
     /// Capítulos como a extensão os devolveu (algumas usam nome/número ao montar as páginas).
     private var chapterCache: [String: [String: Any]] = [:]
     private let cacheLock = NSLock()
@@ -206,7 +208,8 @@ public final class JVMExtensionSource: MangaSource, @unchecked Sendable {
     let prepare: @Sendable () async throws -> Void
 
     public init(source: JVMExtensionManifest.Source, extensionName: String, bridge: JVMBridge,
-                prepare: @escaping @Sendable () async throws -> Void) {
+                memo: JVMMemoStore? = nil, prepare: @escaping @Sendable () async throws -> Void) {
+        self.memo = memo
         self.id = JVMExtensionSupport.sourceID(source.id)
         self.name = source.name
         self.language = source.lang
@@ -230,33 +233,49 @@ public final class JVMExtensionSource: MangaSource, @unchecked Sendable {
     }
 
     public func popular(page: Int) async throws -> MangaListPage {
-        try Self.listPage(try await request("popular", ["page": page]))
+        try list(try await request("popular", ["page": page]))
     }
 
     public func latest(page: Int) async throws -> MangaListPage {
-        try Self.listPage(try await request(supportsLatest ? "latest" : "popular", ["page": page]))
+        try list(try await request(supportsLatest ? "latest" : "popular", ["page": page]))
     }
 
     public func search(query: String, page: Int) async throws -> MangaListPage {
-        try Self.listPage(try await request("search", ["page": page, "query": query]))
+        try list(try await request("search", ["page": page, "query": query]))
+    }
+
+    private func list(_ value: Any) throws -> MangaListPage {
+        let page = try Self.listPage(value)
+        if let memo, let items = (value as? [String: Any])?["mangas"] as? [[String: Any]] {
+            memo.remember(items.compactMap { o in (o["url"] as? String).map { ("m|\($0)", o["memo"]) } })
+        }
+        return page
+    }
+
+    private func mangaObject(_ manga: SourceManga) -> [String: Any] {
+        var o = Self.mangaObject(manga)
+        if let saved = memo?.memo(for: "m|\(manga.key)") { o["memo"] = saved }
+        return o
     }
 
     public func details(for manga: SourceManga) async throws -> SourceManga {
-        guard let object = try await request("details", ["manga": Self.mangaObject(manga)]) as? [String: Any],
+        guard let object = try await request("details", ["manga": mangaObject(manga)]) as? [String: Any],
               let result = Self.manga(object) else {
             throw FYError.invalidData("resposta inválida da extensão")
         }
+        memo?.remember([("m|\(manga.key)", object["memo"])])
         return result
     }
 
     public func chapters(for manga: SourceManga) async throws -> [SourceChapter] {
-        guard let list = try await request("chapters", ["manga": Self.mangaObject(manga)]) as? [[String: Any]] else {
+        guard let list = try await request("chapters", ["manga": mangaObject(manga)]) as? [[String: Any]] else {
             throw FYError.invalidData("resposta inválida da extensão")
         }
         cacheLock.lock()
         if chapterCache.count > 5000 { chapterCache.removeAll() }
         for c in list { if let url = c["url"] as? String { chapterCache[url] = c } }
         cacheLock.unlock()
+        memo?.remember(list.compactMap { c in (c["url"] as? String).map { ("c|\($0)", c["memo"]) } })
         return list.compactMap { c in
             guard let url = c["url"] as? String, !url.isEmpty else { return nil }
             let date = JSONValue.double(c["dateUpload"]) ?? 0
@@ -269,8 +288,9 @@ public final class JVMExtensionSource: MangaSource, @unchecked Sendable {
 
     public func pages(mangaKey: String, chapterKey: String) async throws -> [Page] {
         cacheLock.lock()
-        let chapter = chapterCache[chapterKey] ?? ["url": chapterKey]
+        var chapter = chapterCache[chapterKey] ?? ["url": chapterKey]
         cacheLock.unlock()
+        if chapter["memo"] == nil, let saved = memo?.memo(for: "c|\(chapterKey)") { chapter["memo"] = saved }
         guard let list = try await request("pages", ["chapter": chapter]) as? [[String: Any]] else {
             throw FYError.invalidData("resposta inválida da extensão")
         }
@@ -318,6 +338,54 @@ public final class JVMExtensionSource: MangaSource, @unchecked Sendable {
         if let v = m.summary { o["description"] = v }
         if !m.genres.isEmpty { o["genre"] = m.genres.joined(separator: ", ") }
         return o
+    }
+}
+
+/// Metadados opacos ("memo", extensions-lib 1.6) que as extensões anexam a
+/// títulos e capítulos e esperam receber de volta (ex.: para montar as páginas).
+/// Ficam num JSON por fonte, na pasta das extensões; o app não os interpreta.
+public final class JVMMemoStore: @unchecked Sendable {
+    public let file: URL
+    private var entries: [String: Any]?
+    private let lock = NSLock()
+    static let maxEntries = 20_000
+
+    public init(file: URL) { self.file = file }
+
+    private func load() -> [String: Any] {
+        if let entries { return entries }
+        let loaded = (try? Data(contentsOf: file))
+            .flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] } ?? [:]
+        entries = loaded
+        return loaded
+    }
+
+    public func memo(for key: String) -> [String: Any]? {
+        lock.lock(); defer { lock.unlock() }
+        return load()[key] as? [String: Any]
+    }
+
+    /// Grava os memos não vazios (e apaga os que deixaram de existir).
+    func remember(_ items: [(String, Any?)]) {
+        lock.lock(); defer { lock.unlock() }
+        var map = load()
+        var changed = false
+        for (key, value) in items {
+            if let object = value as? [String: Any], !object.isEmpty {
+                map[key] = object
+                changed = true
+            } else if map[key] != nil {
+                map[key] = nil
+                changed = true
+            }
+        }
+        guard changed else { return }
+        if map.count > Self.maxEntries { map = Dictionary(uniqueKeysWithValues: map.suffix(Self.maxEntries / 2).map { ($0.key, $0.value) }) }
+        entries = map
+        if let data = try? JSONSerialization.data(withJSONObject: map) {
+            try? FileManager.default.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try? data.write(to: file, options: .atomic)
+        }
     }
 }
 
@@ -453,6 +521,13 @@ public struct JVMExtensionInstaller: Sendable {
 
     public func removeJar(_ manifest: JVMExtensionManifest) {
         try? FileManager.default.removeItem(at: directory.appendingPathComponent(manifest.jarFile))
+    }
+
+    /// Apaga os metadados ("memo") guardados para as fontes da extensão.
+    public func removeMemos(_ manifest: JVMExtensionManifest) {
+        for source in manifest.sources {
+            try? FileManager.default.removeItem(at: directory.appendingPathComponent("memo-\(source.id).json"))
+        }
     }
 }
 
