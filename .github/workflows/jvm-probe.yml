@@ -79,7 +79,11 @@ jobs:
           find jvm/include -name '*.h' | sed 's/^/::notice title=headers::/' | head -20
           if [ -d "$SRC/javahome" ]; then cp -R "$SRC/javahome/." Resources/lib/; fi
           ls -la Resources/lib Resources/lib/lib 2>/dev/null | head -20
-          test -f Resources/lib/lib/modules && echo "::notice title=modules::lib/modules presente" || echo "::warning title=modules::sem lib/modules (a JVM não vai iniciar)"
+          if [ -f Resources/lib/lib/modules ] || [ -d Resources/lib/modules/java.base ]; then
+            echo "::notice title=classes::$(ls Resources/lib/modules 2>/dev/null | wc -l | tr -d ' ') módulos (imagem explodida)"
+          else
+            echo "::warning title=classes::sem classes do Java (a JVM não vai iniciar)"
+          fi
           # .jar de teste
           mkdir -p build-java && javac --release 11 -d build-java java/Hello.java java/Plugin.java
           (cd build-java && jar cf ../Resources/jars/hello.jar Hello.class && jar cf ../Resources/jars/plugin.jar Plugin.class)
