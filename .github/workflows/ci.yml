@@ -135,6 +135,14 @@ jobs:
             || (grep -E "error:" build-archive.log; tail -100 build-archive.log; exit 1)
           mkdir -p build/Payload
           cp -R build/FreeYomi.xcarchive/Products/Applications/FreeYomi.app build/Payload/
+          # Prova de assinatura (cópia, assinatura ad hoc): pega arquivos que confundem
+          # as ferramentas de sideload, como .class soltos (cabeçalho igual ao de Mach-O).
+          rm -rf build/signcheck && mkdir -p build/signcheck && cp -R build/Payload/FreeYomi.app build/signcheck/
+          if ! codesign --force --deep --sign - build/signcheck/FreeYomi.app > build/codesign.log 2>&1; then
+            tail -5 build/codesign.log | sed 's/^/::error title=assinatura::/'; exit 1
+          fi
+          codesign --verify --deep --strict build/signcheck/FreeYomi.app && echo "::notice title=assinatura::o app assina e verifica (ad hoc)"
+          du -sh build/Payload/FreeYomi.app | sed 's/^/::notice title=tamanho do app::/'
           (cd build && zip -qry FreeYomi-unsigned.ipa Payload)
           ls -la build/FreeYomi-unsigned.ipa
 

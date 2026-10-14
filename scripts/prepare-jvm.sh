@@ -52,12 +52,36 @@ fi
 
 # 3. JAVA_HOME (classes em imagem explodida) + segurança do JDK do runner
 cp -R "$DEV/javahome/." "$OUT/bundle/lib/"
-[ -d "$OUT/bundle/lib/modules/java.base" ] || { echo "::warning title=JVM::artefato sem classes do Java"; exit 0; }
+[ -d "$OUT/bundle/lib/modules/java.base" ] || { echo "::warning title=JVM::artefato sem classes do Java"; rm -rf "$OUT/bundle/lib"/*; exit 0; }
 mkdir -p "$OUT/bundle/lib/conf/security" "$OUT/bundle/lib/lib/security"
 cp -R "$JAVA_HOME/conf/security/." "$OUT/bundle/lib/conf/security/"
 cp "$JAVA_HOME/lib/security/cacerts" "$OUT/bundle/lib/lib/security/"
 cp "$JAVA_HOME/lib/security/default.policy" "$OUT/bundle/lib/lib/security/" 2>/dev/null || true
 cp "$JAVA_HOME/lib/tzdb.dat" "$OUT/bundle/lib/lib/" 2>/dev/null || true
+
+# 3b. Classes num único arquivo lib/modules (jimage), como num JDK normal: .class soltos
+#     têm o mesmo número mágico de binários Mach-O e quebram a assinatura do app.
+JIMAGE_TOOL="$WORK/jimage-tool"
+rm -rf "$JIMAGE_TOOL" && mkdir -p "$JIMAGE_TOOL"
+"$JAVA_HOME/bin/javac" -nowarn -d "$JIMAGE_TOOL" $(find "$ROOT/scripts/jimage/src" -name '*.java') 2>&1 | grep -v "^Note:" || true
+"$JAVA_HOME/bin/java" -cp "$JIMAGE_TOOL" fyjimage.tool.Main "$OUT/bundle/lib/modules" "$OUT/bundle/lib/lib/modules" \
+  /modules/java.base/java/lang/Object.class /modules/java.base/module-info.class /packages/java.lang/java.base \
+  | sed 's/^/::notice title=jimage::/'
+rm -rf "$OUT/bundle/lib/modules"
+# Nenhum arquivo do pacote pode parecer Mach-O sem ser (CAFEBABE/FEEDFACF/FEEDFACE).
+python3 - "$OUT/bundle" <<'PY'
+import os, sys
+bad = []
+for root, _, files in os.walk(sys.argv[1]):
+    for f in files:
+        with open(os.path.join(root, f), "rb") as h:
+            if h.read(4) in (b"\xca\xfe\xba\xbe", b"\xcf\xfa\xed\xfe", b"\xce\xfa\xed\xfe", b"\xbe\xba\xfe\xca"):
+                bad.append(os.path.join(root, f))
+if bad:
+    print("::error title=pacote::%d arquivo(s) com cabeçalho de Mach-O, ex.: %s" % (len(bad), bad[:3]))
+    sys.exit(1)
+print("::notice title=pacote::nenhum arquivo com cabeçalho de Mach-O")
+PY
 
 # 4. Runtime das extensões
 cp "$RT" "$OUT/bundle/jars/fy-runtime.jar"
@@ -95,7 +119,7 @@ LIBS='$(FY_JVM_LIBS)'
   echo "STRIP_STYLE = debugging"
 } > "$OUT/JVM.xcconfig"
 
-echo "::notice title=JVM::embutida — runtime $(du -h "$OUT/bundle/jars/fy-runtime.jar" | cut -f1), JAVA_HOME $(du -sh "$OUT/bundle/lib" | cut -f1), $(ls "$OUT/bundle/lib/modules" | wc -l | tr -d ' ') módulos"
+echo "::notice title=JVM::embutida — runtime $(du -h "$OUT/bundle/jars/fy-runtime.jar" | cut -f1), JAVA_HOME $(du -sh "$OUT/bundle/lib" | cut -f1)"
 
 # 7. Extensão de teste (só para o teste do CI; não entra no app)
 if [ -n "${TEST_REPO_INDEX:-}" ]; then

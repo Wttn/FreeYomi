@@ -29,7 +29,8 @@ final class EmbeddedJVM: JVMBridge, @unchecked Sendable {
         let jar = bundle.bundleURL.appendingPathComponent("jars/fy-runtime.jar")
         runtimeJar = fm.fileExists(atPath: jar.path) ? jar : nil
         // O HotSpot estático do iOS usa <App>.app/lib como java.home.
-        javaHomeReady = fm.fileExists(atPath: bundle.bundleURL.appendingPathComponent("lib/modules/java.base").path)
+        // Classes do Java num único arquivo jimage: <app>/lib/lib/modules.
+        javaHomeReady = fm.fileExists(atPath: bundle.bundleURL.appendingPathComponent("lib/lib/modules").path)
     }
 
     var isAvailable: Bool { fy_jvm_available() != 0 && runtimeJar != nil && javaHomeReady }
