@@ -17,10 +17,12 @@ static FILE *g_log = NULL;
 // contêiner do app no simulador, inclusive quando a JVM encerra o processo).
 static void fy_open_log(void) {
     if (g_log) return;
+    // No simulador, SIMULATOR_HOST_HOME aponta para a pasta do usuário no Mac.
+    const char *host = getenv("SIMULATOR_HOST_HOME");
     const char *tmp = getenv("TMPDIR");
     char path[1024];
-    snprintf(path, sizeof path, "%s/fyjvm.log", tmp ? tmp : "/tmp");
-    g_log = fopen(path, "w");
+    snprintf(path, sizeof path, "%s/fyjvm.log", host ? host : (tmp ? tmp : "/tmp"));
+    g_log = fopen(path, "a");
 }
 
 static jint JNICALL fy_vfprintf(FILE *stream, const char *format, va_list args) {
