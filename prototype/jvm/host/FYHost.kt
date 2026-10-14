@@ -81,9 +81,12 @@ object FYHost {
             }.toString()
         } catch (t: Throwable) {
             val root = generateSequence(t) { it.cause }.last()
+            // Sem mensagem (ex.: NullPointerException), indica onde aconteceu.
+            val message = root.message?.takeIf { it.isNotBlank() }
+                ?: "${root.javaClass.simpleName} em ${root.stackTrace.take(2).joinToString(" ← ")}"
             buildJsonObject {
                 put("ok", false)
-                put("error", (root.message ?: root.javaClass.simpleName).take(1000))
+                put("error", message.take(1000))
                 put("type", root.javaClass.name)
                 put("trace", t.stackTraceToString().take(3000))
             }.toString()
@@ -137,14 +140,20 @@ object FYHost {
                 val chapter = SChapter.create().apply {
                     url = c.str("url")
                     name = c["name"]?.jsonPrimitive?.contentOrNull ?: ""
+                    scanlator = c["scanlator"]?.jsonPrimitive?.contentOrNull
+                    chapter_number = c["number"]?.jsonPrimitive?.contentOrNull?.toFloatOrNull() ?: -1f
+                    date_upload = c["dateUpload"]?.jsonPrimitive?.contentOrNull?.toLongOrNull() ?: 0L
                 }
                 val pages = runBlocking { s.getPageList(chapter) }
                 return buildJsonArray {
                     for (p in pages) {
-                        var image = p.imageUrl
+                        var image = p.imageUrl?.trim()
                         if (image.isNullOrEmpty() && s is HttpSource && p.url.isNotEmpty()) {
-                            image = runBlocking { s.getImageUrl(p) }
+                            image = runBlocking { s.getImageUrl(p) }.trim()
                         }
+                        // Mesma normalização do Tachidesk (ChapterUtil.preprocessPageList).
+                        if (image != null && image.startsWith("://")) image = "https$image"
+                        if (image != null && image.startsWith("//")) image = "https:$image"
                         add(
                             buildJsonObject {
                                 put("index", p.index)

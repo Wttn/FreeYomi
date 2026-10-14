@@ -76,6 +76,8 @@ final class JVMIntegrationTests: XCTestCase {
             }
         } catch {
             print("FYJVM-APP aviso: \(error.localizedDescription)")
+            let trace = (jvm.lastTrace ?? "").split(separator: "\n").prefix(12).joined(separator: " | ")
+            print("FYJVM-APP pilha: \(trace)")
         }
     }
 }

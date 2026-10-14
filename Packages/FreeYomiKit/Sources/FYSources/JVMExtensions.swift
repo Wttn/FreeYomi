@@ -199,6 +199,9 @@ public final class JVMExtensionSource: MangaSource, @unchecked Sendable {
 
     let extensionName: String
     let bridge: JVMBridge
+    /// Capítulos como a extensão os devolveu (algumas usam nome/número ao montar as páginas).
+    private var chapterCache: [String: [String: Any]] = [:]
+    private let cacheLock = NSLock()
     /// Carrega o .jar na JVM (uma vez) antes da primeira chamada.
     let prepare: @Sendable () async throws -> Void
 
@@ -250,6 +253,10 @@ public final class JVMExtensionSource: MangaSource, @unchecked Sendable {
         guard let list = try await request("chapters", ["manga": Self.mangaObject(manga)]) as? [[String: Any]] else {
             throw FYError.invalidData("resposta inválida da extensão")
         }
+        cacheLock.lock()
+        if chapterCache.count > 5000 { chapterCache.removeAll() }
+        for c in list { if let url = c["url"] as? String { chapterCache[url] = c } }
+        cacheLock.unlock()
         return list.compactMap { c in
             guard let url = c["url"] as? String, !url.isEmpty else { return nil }
             let date = JSONValue.double(c["dateUpload"]) ?? 0
@@ -261,7 +268,10 @@ public final class JVMExtensionSource: MangaSource, @unchecked Sendable {
     }
 
     public func pages(mangaKey: String, chapterKey: String) async throws -> [Page] {
-        guard let list = try await request("pages", ["chapter": ["url": chapterKey]]) as? [[String: Any]] else {
+        cacheLock.lock()
+        let chapter = chapterCache[chapterKey] ?? ["url": chapterKey]
+        cacheLock.unlock()
+        guard let list = try await request("pages", ["chapter": chapter]) as? [[String: Any]] else {
             throw FYError.invalidData("resposta inválida da extensão")
         }
         var pages: [Page] = []

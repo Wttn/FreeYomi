@@ -18,6 +18,8 @@ final class EmbeddedJVM: JVMBridge, @unchecked Sendable {
     private let javaHomeReady: Bool
     private let lock = NSLock()
     private var startTask: Task<Void, Error>?
+    /// Pilha Java do último erro (diagnóstico).
+    private(set) var lastTrace: String?
 
     init(bundle: Bundle = .main) {
         let fm = FileManager.default
@@ -93,7 +95,10 @@ final class EmbeddedJVM: JVMBridge, @unchecked Sendable {
         }
         if (object["ok"] as? Bool) == true { return object["result"] ?? NSNull() }
         let message = (object["error"] as? String) ?? "erro desconhecido"
-        if let trace = object["trace"] as? String { print("[FreeYomi JVM] \(message)\n\(trace)") }
+        if let trace = object["trace"] as? String {
+            lock.withLock { lastTrace = trace }
+            print("[FreeYomi JVM] \(message)\n\(trace)")
+        }
         throw FYError.source(message)
     }
 }
