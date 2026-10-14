@@ -6,7 +6,7 @@ import FYSources
 /// Tachimanga), vista pelo núcleo como um `JVMBridge`.
 ///
 /// Arquivos no pacote do app (colocados pelo CI):
-///  - `lib/`  — JAVA_HOME (classes do Java em imagem explodida, segurança, fusos);
+///  - `lib/`  — JAVA_HOME (classes do Java em lib/lib/modules, segurança, fusos);
 ///  - `jars/fy-runtime.jar` — runtime de compatibilidade + `freeyomi.FYHost`.
 /// A JVM só inicia na primeira chamada (quando uma fonte dessas é usada).
 final class EmbeddedJVM: JVMBridge, @unchecked Sendable {

@@ -59,6 +59,7 @@ O FreeYomi 0.5 faz o mesmo (seção 4.1). Extensões que publicam só o APK cont
 | Peça | Origem e licença | Onde |
 |---|---|---|
 | JVM | OpenJDK Mobile (`openjdk/mobile`, commit `c1ed06aa`), interpretador **Zero** (sem JIT, nunca gera código nativo), compilado como biblioteca estática para iOS. GPLv2 (HotSpot) + Classpath Exception (bibliotecas). Dois patches pequenos em `prototype/jvm/patches/apply.py` | `.github/workflows/jvm-ios.yml` |
+| Classes do Java | As classes compiladas do OpenJDK Mobile viram um único `lib/modules` (formato jimage 1.1), gerado no CI por `scripts/jimage` (código de leitura/escrita do próprio OpenJDK; o `module-info.class` ganha o atributo `ModulePackages`). `.class` soltos no app quebravam a assinatura (Sideloadly: "macho sign/edit failed"), porque começam com `0xCAFEBABE`, o mesmo número de um Mach-O universal. O CI confere que nenhum arquivo parece Mach-O e assina uma cópia do app | `scripts/prepare-jvm.sh` |
 | Runtime das extensões | Fork do Tachidesk-Server do Tachimanga (commit `2e52214`, MPL-2.0) + `freeyomi.FYHost` (`prototype/jvm/host/FYHost.kt`), num único `fy-runtime.jar` | `.github/workflows/jvm-runtime.yml` |
 | Ponte | `App/JVM/fyjvm.c` (JNI; uma thread com pilha de 32 MB por chamada) e `App/JVM/EmbeddedJVM.swift` (`JVMBridge`) | app |
 | Instalação e fontes | `JVMExtensionInstaller`, `JVMExtensionLoader`, `JVMExtensionSource` (`MangaSource`) | `FYSources/JVMExtensions.swift` |
