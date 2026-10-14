@@ -98,7 +98,10 @@ final class FreeYomiUITests: XCTestCase {
         extensions.tap()
         XCTAssertTrue(app.staticTexts["Repositórios de extensões"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["settingsRepositoriesLink"].exists)
-        app.buttons["Servidor de extensões"].firstMatch.tap()
+        let server = app.buttons["extensionServerLink"]
+        if !server.waitForExistence(timeout: 3) { app.swipeUp() }
+        XCTAssertTrue(server.waitForExistence(timeout: 5))
+        server.tap()
         XCTAssertTrue(app.textFields["http://192.168.0.10:4567"].waitForExistence(timeout: 5))
     }
 }

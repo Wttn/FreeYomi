@@ -405,6 +405,7 @@ struct ExtensionSettingsView: View {
                         Label("Servidor de extensões", systemImage: "server.rack")
                     }
                 }
+                .accessibilityIdentifier("extensionServerLink")
             } header: {
                 FYSectionHeader("Extensões Android")
             } footer: {
