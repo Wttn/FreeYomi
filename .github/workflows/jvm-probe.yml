@@ -126,14 +126,14 @@ jobs:
           F=$(find support -path '*libffi*' -name 'libffi.a' | sed -n 1p)
           cp "$F" jvm/ffi/iphoneos/libffi.a
           # libffi do pacote é antiga (LC_VERSION_MIN): compilamos a do simulador a partir do código-fonte.
-          curl -fsSL https://github.com/libffi/libffi/releases/download/v3.4.6/libffi-3.4.6.tar.gz -o libffi.tgz
+          curl -fsSL https://github.com/libffi/libffi/releases/download/v3.5.2/libffi-3.5.2.tar.gz -o libffi.tgz
           tar -xzf libffi.tgz
-          (cd libffi-3.4.6 && SDK=$(xcrun --sdk iphonesimulator --show-sdk-path) && \
+          (cd libffi-3.5.2 && SDK=$(xcrun --sdk iphonesimulator --show-sdk-path) && \
             ./configure --build=x86_64-apple-darwin --host=aarch64-apple-darwin --disable-shared --enable-static --disable-docs \
               CC="$(xcrun -f clang) -target arm64-apple-ios17.0-simulator -isysroot $SDK" > ../ffi-configure.log 2>&1 && \
             make -j4 > ../ffi-make.log 2>&1) || { tail -30 ffi-configure.log ffi-make.log; tail -8 ffi-configure.log | sed 's/^/::error title=libffi configure::/'; tail -8 ffi-make.log 2>/dev/null | sed 's/^/::error title=libffi make::/'; exit 1; }
-          cp "$(find libffi-3.4.6 -name libffi.a -path '*/.libs/*' | sed -n 1p)" jvm/ffi/iphonesimulator/libffi.a
-          echo "::notice title=libffi simulador::compilada a partir do código-fonte (3.4.6)"
+          cp "$(find libffi-3.5.2 -name libffi.a -path '*/.libs/*' | sed -n 1p)" jvm/ffi/iphonesimulator/libffi.a
+          echo "::notice title=libffi simulador::compilada a partir do código-fonte (3.5.2)"
 
       - name: Gerar projeto
         working-directory: prototype/jvm/probe
