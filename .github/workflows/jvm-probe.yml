@@ -164,7 +164,8 @@ jobs:
           LOG=$(ls "$HOME/fyjvm.log" 2>/dev/null || find "${DATA:-/nonexistent}" -name fyjvm.log 2>/dev/null | head -1)
           HSERR=$(find /Users/runner/Library/Developer/CoreSimulator/Devices/"$UDID"/data/Containers/Data/Application -name 'hs_err_pid*.log' 2>/dev/null | head -1)
           if [ -n "$HSERR" ]; then
-            grep -E "^#|siginfo|Problematic|^Current thread|^Stack:|^[VCJjv] |^Native frames|Java frames|^Register|pc=|SIG" "$HSERR" | head -45 | sed 's/^/::warning title=hs_err::/'
+            grep -v "^\s*$" "$HSERR" | sed -n '1,70p' | sed 's/^/::warning title=hs_err::/'
+            grep -A12 "^siginfo\|^Registers\|^Top of Stack" "$HSERR" | head -40 | sed 's/^/::warning title=hs_err sinal::/'
             sed -n '/^Native frames/,/^$/p' "$HSERR" | head -30 | sed 's/^/::warning title=hs_err pilha::/'
             sed -n '/^Java frames/,/^$/p' "$HSERR" | head -20 | sed 's/^/::warning title=hs_err java::/'
           fi
