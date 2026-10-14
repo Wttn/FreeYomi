@@ -18,6 +18,8 @@ jobs:
   runtime:
     runs-on: ubuntu-24.04
     timeout-minutes: 60
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
         with:
@@ -59,3 +61,16 @@ jobs:
           name: fy-runtime
           path: fy-runtime.jar
           retention-days: 30
+
+      - name: Publicar logs no branch ci-logs-runtime
+        if: always()
+        run: |
+          OUT=/tmp/ci-logs/runtime
+          mkdir -p "$OUT"
+          [ -f gradle.log ] && tail -600 gradle.log > "$OUT/gradle.log"
+          (cd server-src 2>/dev/null && git log -1 --format='%H %s') > "$OUT/fork.txt" 2>&1 || true
+          cd /tmp/ci-logs && git init -q && git checkout -q -b ci-logs-runtime
+          echo "run $GITHUB_RUN_ID ($GITHUB_SHA)" > README.txt
+          git add -A && git -c user.name="ci" -c user.email="ci@users.noreply.github.com" commit -qm "logs do run $GITHUB_RUN_ID"
+          git push -qf "https://x-access-token:${{ github.token }}@github.com/$GITHUB_REPOSITORY" ci-logs-runtime
+
