@@ -21,10 +21,14 @@ pública.
    Workflow: `.github/workflows/jvm-probe.yml`. ✅ 14/10/2026, no simulador do CI:
    `Java 28-internal OpenJDK 64-Bit Zero VM | regex=1195 | map={a=2, b=1, c=1} |
    plugin: ok (Plugin carregada de um .jar fora do classpath) | 5.38 s`
-   (inclui a inicialização da JVM). ← **próxima etapa: 3**
-3. **Runtime das extensões:** biblioteca de compatibilidade Android e a camada
-   de fontes do Suwayomi/Tachimanga (MPL-2.0, mantida em arquivos MPL),
-   `extensions-lib` 1.4/1.5/1.6, OkHttp, Jsoup, RxJava, Injekt e Kotlin.
+   (inclui a inicialização da JVM).
+3. **Runtime das extensões:** o fork do Tachidesk-Server do Tachimanga
+   (MPL-2.0) é compilado como um `.jar` único com a ponte `host/FYHost.kt`
+   (workflow `jvm-runtime.yml`). Rede só por OkHttp/JSSE por enquanto (as
+   pontes nativas do Tachimanga para URLSession ainda não foram feitas). ✅
+   14/10/2026, no simulador: extensão real do Keiyoushi baixada do `jarUrl`:
+   `init=1033ms | carregar=611ms | fonte=AnimeXNovel (pt-BR) | populares=20 em 7457ms |
+   «As 100 Maldições da Casa Illeston» | …` ← **próxima etapa: 4**
 4. **Ponte com o app:** listar, buscar, detalhes, capítulos e páginas via JNI
    (JSON) para um `MangaSource` em Swift; instalar a partir dos repositórios
    que o usuário adicionou.
