@@ -7,7 +7,7 @@ name: Protótipo JVM — prova de vida
 on:
   workflow_dispatch:
   push:
-    branches: [prototipo/jvm-embutida]
+    branches: [prototipo/jvm-embutida, feature/extensoes-jvm, main]
     paths:
       - .github/workflows/jvm-probe.yml
       - prototype/jvm/probe/**

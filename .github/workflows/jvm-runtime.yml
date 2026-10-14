@@ -6,7 +6,7 @@ name: Protótipo JVM — runtime das extensões
 on:
   workflow_dispatch:
   push:
-    branches: [prototipo/jvm-embutida]
+    branches: [prototipo/jvm-embutida, feature/extensoes-jvm, main]
     paths:
       - .github/workflows/jvm-runtime.yml
       - prototype/jvm/host/**

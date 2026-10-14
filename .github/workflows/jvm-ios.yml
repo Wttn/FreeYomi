@@ -10,7 +10,7 @@ name: Protótipo JVM iOS
 on:
   workflow_dispatch:
   push:
-    branches: [prototipo/jvm-embutida]
+    branches: [prototipo/jvm-embutida, feature/extensoes-jvm, main]
     paths:
       - .github/workflows/jvm-ios.yml
       - prototype/jvm/patches/**
