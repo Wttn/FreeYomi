@@ -1,0 +1,61 @@
+# Protótipo, etapa 3: runtime das extensões (o mesmo que o Tachimanga usa).
+# Compila o fork do Tachidesk-Server do Tachimanga (MPL-2.0) com a ponte
+# freeyomi.FYHost e publica o .jar único (shadowJar) como artefato.
+name: Protótipo JVM — runtime das extensões
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [prototipo/jvm-embutida]
+    paths:
+      - .github/workflows/jvm-runtime.yml
+      - prototype/jvm/host/**
+
+env:
+  TACHIMANGA_SERVER_COMMIT: 2e52214
+
+jobs:
+  runtime:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: freeyomi
+          sparse-checkout: prototype/jvm/host
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Baixar o fork do Tachimanga
+        run: |
+          git clone -q https://github.com/tachimanga/Tachidesk-Server.git server-src
+          cd server-src && git checkout -q "$TACHIMANGA_SERVER_COMMIT" && git log -1 --format='%H %cd %s'
+
+      - name: Adicionar a ponte do FreeYomi
+        run: |
+          mkdir -p server-src/server/src/main/kotlin/freeyomi
+          cp freeyomi/prototype/jvm/host/*.kt server-src/server/src/main/kotlin/freeyomi/
+
+      - name: Compilar (shadowJar)
+        working-directory: server-src
+        run: |
+          chmod +x gradlew
+          if ! ./gradlew --no-daemon -q server:shadowJar > ../gradle.log 2>&1; then
+            grep -E "^e: |error:|FAILURE|What went wrong" -A3 ../gradle.log | head -40 | sed 's/^/::error title=gradle::/'
+            tail -60 ../gradle.log
+            exit 1
+          fi
+          ls -la server/build/*.jar
+          J=$(ls server/build/*.jar | head -1)
+          cp "$J" ../fy-runtime.jar
+          unzip -l ../fy-runtime.jar | tail -1 | sed 's/^/::notice title=runtime::/'
+          unzip -l ../fy-runtime.jar | grep -c "freeyomi/FYHost" | sed 's/^/::notice title=FYHost::/'
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: fy-runtime
+          path: fy-runtime.jar
+          retention-days: 30
