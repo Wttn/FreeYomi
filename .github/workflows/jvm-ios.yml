@@ -1,0 +1,113 @@
+# Protótipo: máquina virtual Java embutida no iPhone (como faz o Tachimanga).
+#
+# Etapa 1: compilar o OpenJDK do projeto oficial OpenJDK Mobile (openjdk/mobile)
+# como biblioteca estática para iOS, com o interpretador Zero (sem JIT, que o
+# iOS proíbe). Instruções: README do openjdk/mobile, seção "Build static image for iOS".
+# Licença do OpenJDK: GPLv2 (+ Classpath Exception na maior parte das bibliotecas).
+# Ver prototype/jvm/README.md.
+name: Protótipo JVM iOS
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [prototipo/jvm-embutida]
+    paths:
+      - .github/workflows/jvm-ios.yml
+      - prototype/jvm/**
+
+concurrency:
+  group: jvm-ios-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  OPENJDK_MOBILE_COMMIT: c1ed06aa
+  SUPPORT_ZIP: https://download2.gluonhq.com/mobile/mobile-support-20250106.zip
+
+jobs:
+  openjdk-ios:
+    name: OpenJDK Mobile (iOS, Zero, estático)
+    runs-on: macos-26
+    timeout-minutes: 240
+    steps:
+      - name: Selecionar Xcode 26
+        run: |
+          XCODE=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1)
+          if [ -z "$XCODE" ]; then XCODE=/Applications/Xcode.app; fi
+          sudo xcode-select -s "$XCODE"
+          xcodebuild -version
+
+      - name: JDK de boot (26)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "26"
+
+      - name: Ferramentas
+        run: brew install autoconf
+
+      - name: Baixar openjdk/mobile
+        run: |
+          git init -q mobile
+          cd mobile
+          git remote add origin https://github.com/openjdk/mobile.git
+          git fetch -q --depth 1 origin "$OPENJDK_MOBILE_COMMIT" || git fetch -q --depth 1 origin master
+          git checkout -q FETCH_HEAD
+          git log -1 --format='openjdk/mobile %H %cd'
+
+      - name: Baixar pacote de apoio (libffi e cups para iOS)
+        run: |
+          curl -fsSL "$SUPPORT_ZIP" -o support.zip
+          unzip -q support.zip -d support
+          find support -maxdepth 3 -type d | head -30
+
+      - name: Configurar
+        working-directory: mobile
+        run: |
+          SUPPORT=$(cd ../support && pwd)
+          FFI=$(dirname "$(find "$SUPPORT" -path '*libffi*' -name ffi.h | head -1)")
+          FFILIB=$(dirname "$(find "$SUPPORT" -path '*libffi*' -name 'libffi*.a' | head -1)")
+          CUPS=$(find "$SUPPORT" -maxdepth 2 -type d -name 'cups-*' | head -1)
+          echo "libffi include=$FFI lib=$FFILIB cups=$CUPS"
+          SDK=$(xcrun --sdk iphoneos --show-sdk-path)
+          sh configure \
+            --disable-warnings-as-errors \
+            --openjdk-target=aarch64-macos-ios \
+            --with-boot-jdk="$JAVA_HOME" \
+            --with-libffi-include="$FFI" \
+            --with-libffi-lib="$FFILIB" \
+            --with-cups-include="$CUPS" \
+            --with-sysroot="$SDK" 2>&1 | tail -60
+
+      - name: Compilar biblioteca estática (static-libs-image)
+        working-directory: mobile
+        run: |
+          set -o pipefail
+          make CONF=ios-aarch64-zero-release static-libs-image 2>&1 | tail -150
+
+      - name: Compilar imagem com as classes (static-jdk-image, tentativa)
+        id: jdkimage
+        continue-on-error: true
+        working-directory: mobile
+        run: |
+          set -o pipefail
+          make CONF=ios-aarch64-zero-release static-jdk-image 2>&1 | tail -80
+
+      - name: Inventário
+        working-directory: mobile/build/ios-aarch64-zero-release/images
+        run: |
+          find . -maxdepth 4 | head -100
+          du -sh * || true
+          ls -la static-libs/lib/zero/ || true
+
+      - name: Empacotar
+        run: |
+          cd mobile/build/ios-aarch64-zero-release/images
+          tar -czf "$GITHUB_WORKSPACE/openjdk-ios-zero.tgz" $(ls -d static-libs static-jdk 2>/dev/null)
+          ls -la "$GITHUB_WORKSPACE/openjdk-ios-zero.tgz"
+
+      - name: Publicar artefato
+        uses: actions/upload-artifact@v4
+        with:
+          name: openjdk-ios-zero
+          path: openjdk-ios-zero.tgz
+          retention-days: 30
