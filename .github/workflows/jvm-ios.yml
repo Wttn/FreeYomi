@@ -158,7 +158,7 @@ jobs:
           if [ -d "$J/modules/java.base" ]; then
             mkdir -p javahome/modules
             # Módulos necessários para as extensões (rede, XML, log, criptografia).
-            for m in java.base java.logging java.xml java.naming java.sql java.net.http java.management \
+            for m in java.base java.logging java.xml java.naming java.security.sasl java.sql java.transaction.xa java.net.http java.management \
                      jdk.crypto.ec jdk.crypto.cryptoki jdk.unsupported jdk.zipfs jdk.charsets jdk.localedata java.scripting; do
               [ -d "$J/modules/$m" ] && cp -R "$J/modules/$m" javahome/modules/
             done
