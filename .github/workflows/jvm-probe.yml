@@ -115,7 +115,7 @@ jobs:
           python3 tools/pick_extension.py "$TEST_REPO_INDEX" Resources/jars | sed 's/^/::notice title=extensão de teste::/' || echo "::warning::sem extensão de teste"
           # Configuração de segurança e certificados (HTTPS) — do JDK do runner.
           mkdir -p Resources/lib/conf/security Resources/lib/lib/security
-          cp "$JAVA_HOME/conf/security/java.security" Resources/lib/conf/security/
+          cp -R "$JAVA_HOME/conf/security/." Resources/lib/conf/security/
           cp "$JAVA_HOME/lib/security/cacerts" Resources/lib/lib/security/
           cp "$JAVA_HOME/lib/security/default.policy" Resources/lib/lib/security/ 2>/dev/null || true
           cp "$JAVA_HOME/lib/tzdb.dat" Resources/lib/lib/ 2>/dev/null || true
