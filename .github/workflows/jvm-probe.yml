@@ -19,12 +19,14 @@ concurrency:
 jobs:
   probe:
     runs-on: macos-26
-    timeout-minutes: 60
+    timeout-minutes: 90
     permissions:
       actions: read
       contents: write
     env:
       GH_TOKEN: ${{ github.token }}
+      # Índice usado só para baixar uma extensão de teste no CI (não entra no app).
+      TEST_REPO_INDEX: https://raw.githubusercontent.com/keiyoushi/extensions/repo/index.json
     steps:
       - uses: actions/checkout@v4
 
@@ -49,8 +51,18 @@ jobs:
           echo "run=$RUN" >> "$GITHUB_OUTPUT"
           echo "::notice title=OpenJDK::usando o run $RUN"
 
+      - name: Último runtime das extensões
+        id: rtrun
+        run: |
+          RUN=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow jvm-runtime.yml --branch "$GITHUB_REF_NAME" \
+                --limit 20 --json databaseId,conclusion --jq '[.[] | select(.conclusion=="success")][0].databaseId')
+          echo "run=$RUN" >> "$GITHUB_OUTPUT"
+          echo "::notice title=runtime::usando o run $RUN"
+
       - name: Baixar artefatos
         run: |
+          mkdir -p probe-rt
+          [ -n "${{ steps.rtrun.outputs.run }}" ] && gh run download "${{ steps.rtrun.outputs.run }}" --repo "$GITHUB_REPOSITORY" --dir probe-rt || true
           mkdir -p probe-jvm
           gh run download "${{ steps.jvmrun.outputs.run }}" --repo "$GITHUB_REPOSITORY" --dir probe-jvm || true
           find probe-jvm -maxdepth 2 | sed 's/^/::notice title=artefatos::/'
@@ -96,6 +108,17 @@ jobs:
           # .jar de teste
           mkdir -p build-java && javac --release 11 -d build-java java/Hello.java java/Plugin.java
           (cd build-java && jar cf ../Resources/jars/hello.jar Hello.class && jar cf ../Resources/jars/plugin.jar Plugin.class)
+          # Runtime das extensões (fork do Tachidesk do Tachimanga + ponte FYHost).
+          RT=$(find ../../../probe-rt -name 'fy-runtime.jar' | head -1)
+          [ -n "$RT" ] && cp "$RT" Resources/jars/fy-runtime.jar && echo "::notice title=runtime::$(du -h Resources/jars/fy-runtime.jar | cut -f1)"
+          # Extensão de teste: a primeira pt-BR marcada como segura no índice de um repositório (só para o teste).
+          python3 tools/pick_extension.py "$TEST_REPO_INDEX" Resources/jars | sed 's/^/::notice title=extensão de teste::/' || echo "::warning::sem extensão de teste"
+          # Configuração de segurança e certificados (HTTPS) — do JDK do runner.
+          mkdir -p Resources/lib/conf/security Resources/lib/lib/security
+          cp "$JAVA_HOME/conf/security/java.security" Resources/lib/conf/security/
+          cp "$JAVA_HOME/lib/security/cacerts" Resources/lib/lib/security/
+          cp "$JAVA_HOME/lib/security/default.policy" Resources/lib/lib/security/ 2>/dev/null || true
+          cp "$JAVA_HOME/lib/tzdb.dat" Resources/lib/lib/ 2>/dev/null || true
           # Ligação: força a carga das bibliotecas para que os JNI_OnLoad_* estáticos existam no executável.
           libs() {
             local base=jvm/$1/static-libs/lib
@@ -160,6 +183,7 @@ jobs:
           xcodebuild test -project JVMProbe.xcodeproj -scheme JVMProbe -destination "id=$UDID" \
             CODE_SIGNING_ALLOWED=NO > sim.log 2>&1 || status=$?
           grep -E "FYJVM-RESULT" sim.log | head -3 | sed 's/^/::notice title=resultado::/'
+          grep -E "FYJVM-EXT" sim.log | head -3 | cut -c1-900 | sed 's/^/::notice title=extensão::/'
           DATA=$(xcrun simctl get_app_container "$UDID" io.github.freeyomi.jvmprobe data 2>/dev/null || true)
           LOG=$(ls "$HOME/fyjvm.log" 2>/dev/null || find "${DATA:-/nonexistent}" -name fyjvm.log 2>/dev/null | head -1)
           HSERR=$(find /Users/runner/Library/Developer/CoreSimulator/Devices/"$UDID"/data/Containers/Data/Application -name 'hs_err_pid*.log' 2>/dev/null | head -1)

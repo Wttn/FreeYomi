@@ -81,11 +81,16 @@ static void *fy_thread(void *arg) {
         if (g_log) { fprintf(g_log, "[fyjvm] classpath=%s\n", c->classPath); fflush(g_log); }
         char cp[8192];
         snprintf(cp, sizeof cp, "-Djava.class.path=%s", c->classPath);
+        // No iOS só o contêiner do app é gravável: /tmp não serve.
+        char tmpdir[1200];
+        const char *t = getenv("TMPDIR");
+        snprintf(tmpdir, sizeof tmpdir, "-Djava.io.tmpdir=%s", t ? t : "/tmp");
         JavaVMOption options[] = {
             { .optionString = cp },
+            { .optionString = tmpdir },
+            { .optionString = "-Xmx512m" },
             { .optionString = "-Xshare:off" },
             { .optionString = "-XX:+UseSerialGC" },
-            { .optionString = "-Xmx256m" },
             { .optionString = "-Xss4m" },
             { .optionString = "-XX:-UsePerfData" },
             { .optionString = "-Djava.awt.headless=true" },
