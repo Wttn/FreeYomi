@@ -357,7 +357,8 @@ final class JVMExtensionManagerTests: XCTestCase {
         jvm.responses["popular"] = ["mangas": [["url": "/obra", "title": "Obra", "memo": ["slug": "obra-x"]]], "hasNextPage": false]
         jvm.responses["chapters"] = [["url": "/c/1", "name": "Cap 1", "memo": ["mangaUrl": "/obra", "id": 9]]]
         let first = JVMExtensionSource(source: info, extensionName: "Ext", bridge: jvm, memo: JVMMemoStore(file: file), prepare: {})
-        let manga = try XCTUnwrap(try await first.popular(page: 1).items.first)
+        let popular = try await first.popular(page: 1)
+        let manga = try XCTUnwrap(popular.items.first)
         _ = try await first.chapters(for: manga)
         XCTAssertEqual(((jvm.calls.last?["manga"] as? [String: Any])?["memo"] as? [String: Any])?["slug"] as? String, "obra-x")
 
