@@ -122,9 +122,17 @@ jobs:
           unzip -q support.zip -d support
           find support -name 'libffi*.a' | while read f; do lipo -info "$f"; done | sed 's/^/::notice title=libffi::/'
           mkdir -p jvm/ffi/iphoneos jvm/ffi/iphonesimulator
-          F=$(find support -path '*libffi*' -name 'libffi*.a' | head -1)
+          F=$(find support -path '*libffi*' -name 'libffi.a' | head -1)
           cp "$F" jvm/ffi/iphoneos/libffi.a
-          python3 tools/ios_to_sim.py "$F" jvm/ffi/iphonesimulator/libffi.a | sed 's/^/::notice title=libffi simulador::/'
+          # libffi do pacote é antiga (LC_VERSION_MIN): compilamos a do simulador a partir do código-fonte.
+          curl -fsSL https://github.com/libffi/libffi/releases/download/v3.4.6/libffi-3.4.6.tar.gz -o libffi.tgz
+          tar -xzf libffi.tgz
+          (cd libffi-3.4.6 && SDK=$(xcrun --sdk iphonesimulator --show-sdk-path) && \
+            ./configure --host=aarch64-apple-darwin --disable-shared --enable-static --disable-docs \
+              CC="$(xcrun -f clang) -target arm64-apple-ios17.0-simulator -isysroot $SDK" > ../ffi-configure.log 2>&1 && \
+            make -j4 > ../ffi-make.log 2>&1) || { tail -30 ffi-configure.log ffi-make.log; grep -iE "error" ffi-*.log | head -20 | sed 's/^/::error title=libffi::/'; exit 1; }
+          cp "$(find libffi-3.4.6 -name libffi.a -path '*/.libs/*' | head -1)" jvm/ffi/iphonesimulator/libffi.a
+          echo "::notice title=libffi simulador::compilada a partir do código-fonte (3.4.6)"
 
       - name: Gerar projeto
         working-directory: prototype/jvm/probe
@@ -152,7 +160,7 @@ jobs:
             CODE_SIGNING_ALLOWED=NO > sim.log 2>&1 || status=$?
           grep -E "FYJVM-RESULT" sim.log | head -3 | sed 's/^/::notice title=resultado::/'
           if [ "$status" -ne 0 ]; then
-            grep -E "error:|Undefined symbols|referenced from|duplicate symbol|failed|crash|Fatal|SIG" sim.log | sort -u | head -40 | sed 's/^/::error title=simulador::/'
+            grep -E "error:|Undefined symbols|referenced from|duplicate symbol|building for|ld: |failed|crash|Fatal|SIG" sim.log | sort -u | head -40 | sed 's/^/::error title=simulador::/'
             tail -100 sim.log
             exit "$status"
           fi
