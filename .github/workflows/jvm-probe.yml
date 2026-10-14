@@ -118,11 +118,12 @@ jobs:
       - name: libffi (pacote de apoio do OpenJDK Mobile)
         working-directory: prototype/jvm/probe
         run: |
+          trap 'echo "::error title=libffi (linha $LINENO)::$BASH_COMMAND"' ERR
           curl -fsSL https://download2.gluonhq.com/mobile/mobile-support-20250106.zip -o support.zip
           unzip -q support.zip -d support
           find support -name 'libffi*.a' | while read f; do lipo -info "$f"; done | sed 's/^/::notice title=libffi::/'
           mkdir -p jvm/ffi/iphoneos jvm/ffi/iphonesimulator
-          F=$(find support -path '*libffi*' -name 'libffi.a' | head -1)
+          F=$(find support -path '*libffi*' -name 'libffi.a' | sed -n 1p)
           cp "$F" jvm/ffi/iphoneos/libffi.a
           # libffi do pacote é antiga (LC_VERSION_MIN): compilamos a do simulador a partir do código-fonte.
           curl -fsSL https://github.com/libffi/libffi/releases/download/v3.4.6/libffi-3.4.6.tar.gz -o libffi.tgz
@@ -131,7 +132,7 @@ jobs:
             ./configure --host=aarch64-apple-darwin --disable-shared --enable-static --disable-docs \
               CC="$(xcrun -f clang) -target arm64-apple-ios17.0-simulator -isysroot $SDK" > ../ffi-configure.log 2>&1 && \
             make -j4 > ../ffi-make.log 2>&1) || { tail -30 ffi-configure.log ffi-make.log; grep -iE "error" ffi-*.log | head -20 | sed 's/^/::error title=libffi::/'; exit 1; }
-          cp "$(find libffi-3.4.6 -name libffi.a -path '*/.libs/*' | head -1)" jvm/ffi/iphonesimulator/libffi.a
+          cp "$(find libffi-3.4.6 -name libffi.a -path '*/.libs/*' | sed -n 1p)" jvm/ffi/iphonesimulator/libffi.a
           echo "::notice title=libffi simulador::compilada a partir do código-fonte (3.4.6)"
 
       - name: Gerar projeto
