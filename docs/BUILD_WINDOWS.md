@@ -27,8 +27,8 @@ Com Docker Desktop:
 ```powershell
 cd C:\Users\<você>\Documents\Claude\FreeYomi
 powershell -ExecutionPolicy Bypass -File scripts\test-core.ps1
-# baixando também o índice real do Keiyoushi:
-powershell -ExecutionPolicy Bypass -File scripts\test-core.ps1 -Live
+# testando também contra um índice real escolhido por você (opcional):
+powershell -ExecutionPolicy Bypass -File scripts\test-core.ps1 -LiveIndexUrl https://<seu-repositório>/index.min.json
 ```
 
 Com WSL (Ubuntu 24.04), uma única vez:

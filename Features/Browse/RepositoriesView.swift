@@ -3,34 +3,55 @@ import UIKit
 import FYCore
 import FYDomain
 import FYSources
+import FYServices
 
-/// "Repositórios de extensões": lista, copia, abre contato, adiciona e remove
-/// repositórios (index.pb / repo.json), como no Tachimanga e no Mihon.
+/// "Repositórios de extensões": lista os repositórios que o USUÁRIO adicionou,
+/// com atualização, cópia do endereço, remoção e estado da última sincronização.
 ///
-/// Com servidor conectado, a lista é sincronizada com o Suwayomi-Server, que
-/// baixa e executa as extensões. Sem servidor, os repositórios alimentam o
-/// catálogo (somente metadados).
+/// O app não traz nenhum repositório, sugestão ou link de fontes de terceiros.
 struct ExtensionRepositoriesView: View {
     @Environment(AppModel.self) private var model
     @State private var addRequest: AddRepositoryRequest?
     @State private var confirmRemove: ExtensionRepository?
     @State private var copiedURL: String?
+    @State private var refreshing: Set<String> = []
 
     var body: some View {
         List {
             Section {
-                ForEach(model.settings.extensionRepositories, id: \.self) { url in
-                    RepositoryCard(repo: model.repositoryInfo(url),
-                                   error: model.repositoryError(url),
-                                   onServer: model.serverClient == nil ? nil : model.isOnServer(url),
-                                   copied: copiedURL == url,
-                                   onCopy: { copy(url) },
-                                   onRemove: { confirmRemove = model.repositoryInfo(url) })
+                Text("Repositórios publicam a lista de extensões disponíveis. Adicione o endereço de um repositório em que "
+                     + "você confia para ver as fontes que ele oferece. O FreeYomi só baixa a lista (nomes, versões e "
+                     + "ícones); nenhum código é executado no iPhone.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            }
+
+            if model.repositories.isEmpty {
+                Section {
+                    ContentUnavailableView {
+                        Label("Nenhum repositório", systemImage: "shippingbox")
+                    } description: {
+                        Text("Você ainda não adicionou nenhum repositório. Insira a URL de um repositório de extensões "
+                             + "em que você confia para consultar suas fontes disponíveis.")
+                    }
+                    .accessibilityIdentifier("repositoriesEmptyState")
                 }
-                .onMove { model.moveRepositories(from: $0, to: $1) }
-            } footer: {
-                if model.settings.extensionRepositories.isEmpty {
-                    Text("Nenhum repositório. Toque em \"Adicionar repositório\".")
+            } else {
+                Section {
+                    ForEach(model.repositories) { record in
+                        RepositoryCard(repo: model.repositoryInfo(record.url),
+                                       record: record,
+                                       error: model.repositoryError(record.url),
+                                       onServer: model.serverClient == nil ? nil : model.isOnServer(record.url),
+                                       copied: copiedURL == record.url,
+                                       isRefreshing: refreshing.contains(record.url) || model.isRefreshingRepositories,
+                                       onCopy: { copy(record.url) },
+                                       onRefresh: { refresh(record.url) },
+                                       onRemove: { confirmRemove = model.repositoryInfo(record.url) })
+                    }
+                    .onMove { model.moveRepositories(from: $0, to: $1) }
+                } header: {
+                    Text("\(model.repositories.count) repositório(s)")
                 }
             }
 
@@ -41,39 +62,40 @@ struct ExtensionRepositoriesView: View {
                     Label("Adicionar repositório", systemImage: "plus.circle.fill")
                 }
                 .accessibilityIdentifier("addRepositoryButton")
-                Button {
-                    addRequest = AddRepositoryRequest(initialURL: "", focusSuggestions: true)
-                } label: {
-                    Label("Encontrar repositório", systemImage: "magnifyingglass")
-                }
             } footer: {
-                Text("Adicione apenas repositórios em que você confia. "
-                     + "Ao adicionar, o FreeYomi baixa só o índice (nomes, versões e ícones); nenhum código roda no iPhone.")
+                Text("Repositórios e extensões são mantidos por terceiros, sem vínculo com o FreeYomi. Verifique a "
+                     + "procedência, as licenças e se você tem permissão para usar o conteúdo das fontes.")
             }
 
-            Section {
-                serverSummary
+            if !model.repositories.isEmpty {
+                Section { serverSummary }
             }
         }
         .listStyle(.insetGrouped)
         .navigationTitle("Repositórios de extensões")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) { EditButton() }
-        }
-        .refreshable { await model.refreshRepositories() }
-        .task {
-            model.loadCachedRepositories()
-            if model.repositoryCatalogs.contains(where: { $0.snapshot == nil }) {
-                await model.refreshRepositories()
+            if !model.repositories.isEmpty {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        Task { await model.refreshRepositories() }
+                    } label: {
+                        Label("Atualizar todos", systemImage: "arrow.clockwise")
+                    }
+                    .disabled(model.isRefreshingRepositories)
+                }
+                ToolbarItem(placement: .topBarTrailing) { EditButton() }
             }
         }
+        .refreshable { await model.refreshRepositories() }
+        .task { model.loadCachedRepositories() }
         .overlay(alignment: .bottom) {
             if model.isRefreshingRepositories {
                 HStack(spacing: 8) { ProgressView(); Text("Atualizando repositórios…").font(.subheadline) }
                     .padding(.horizontal, 16).padding(.vertical, 10)
                     .fyGlass(in: Capsule())
                     .padding(.bottom, 12)
+                    .accessibilityElement(children: .combine)
             }
         }
         .sheet(item: $addRequest) { AddRepositorySheet(request: $0) }
@@ -81,13 +103,30 @@ struct ExtensionRepositoriesView: View {
             get: { confirmRemove != nil }, set: { if !$0 { confirmRemove = nil } }
         ), titleVisibility: .visible, presenting: confirmRemove) { repo in
             Button("Remover \(repo.name)", role: .destructive) {
-                Task { await model.removeRepository(repo.indexURL) }
+                Task {
+                    if let summary = await model.removeRepository(repo.indexURL), !summary.keptInstalledExtensions.isEmpty {
+                        model.alertMessage = "Repositório removido. Continuam instaladas: "
+                            + summary.keptInstalledExtensions.joined(separator: ", ")
+                            + ". Elas não receberão mais atualizações; remova-as em Explorar › Extensões, se quiser."
+                    }
+                }
             }
-        } message: { _ in
-            Text(model.serverClient == nil
-                 ? "As extensões dele deixam de aparecer no catálogo."
-                 : "Também será removido do servidor. Novas extensões e atualizações dele deixam de aparecer.")
+        } message: { repo in
+            Text(removalMessage(repo))
         }
+    }
+
+    private func removalMessage(_ repo: ExtensionRepository) -> String {
+        let installed = model.installedExtensions.filter { rec in
+            rec.repositoryURL.map { RepositoryURL.same($0, repo.indexURL) } ?? false
+        }.count
+        var text = "Será removido: o endereço e a cópia local da lista de extensões deste repositório."
+        if model.serverClient != nil { text += " Ele também sai do seu servidor de extensões." }
+        text += "\n\nNÃO serão apagados: sua biblioteca, o histórico, o progresso de leitura e os capítulos baixados."
+        if installed > 0 {
+            text += " \(installed) extensão(ões) instalada(s) dele continua(m) instalada(s), sem atualizações."
+        }
+        return text
     }
 
     @ViewBuilder
@@ -100,14 +139,23 @@ struct ExtensionRepositoriesView: View {
             }
         } else {
             VStack(alignment: .leading, spacing: 6) {
-                Label("Sem servidor de extensões", systemImage: "server.rack")
-                Text("Para instalar extensões destes repositórios e ler pelas fontes delas, conecte o Suwayomi-Server. "
-                     + "Os repositórios desta lista são enviados a ele automaticamente.")
+                Label("Extensões Android", systemImage: "server.rack")
+                Text("Extensões Android (APK) não rodam no iPhone. Para usá-las, conecte um servidor de extensões "
+                     + "que você mesmo instalou; estes repositórios são enviados a ele.")
                     .font(.caption).foregroundStyle(.secondary)
-                NavigationLink("Conectar servidor") { ExtensionServerSettingsView() }
+                NavigationLink("Configurar servidor") { ExtensionServerSettingsView() }
                     .font(.callout)
             }
             .padding(.vertical, 2)
+        }
+    }
+
+    private func refresh(_ url: String) {
+        guard !refreshing.contains(url) else { return }
+        refreshing.insert(url)
+        Task {
+            await model.refreshRepository(url)
+            refreshing.remove(url)
         }
     }
 
@@ -115,6 +163,7 @@ struct ExtensionRepositoriesView: View {
         UIPasteboard.general.string = url
         Haptics.success()
         copiedURL = url
+        UIAccessibility.post(notification: .announcement, argument: "Endereço copiado")
         Task {
             try? await Task.sleep(nanoseconds: 1_500_000_000)
             if copiedURL == url { copiedURL = nil }
@@ -122,14 +171,17 @@ struct ExtensionRepositoriesView: View {
     }
 }
 
-/// Cartão de um repositório: nome + selo, endereço, Copiar / Discord / Site e menu ⋯.
+/// Cartão de um repositório: nome + selo, endereço, sincronização e ações.
 struct RepositoryCard: View {
     let repo: ExtensionRepository
+    let record: RepositoryRecord?
     let error: String?
     /// `nil` sem servidor; `true`/`false` se o servidor já tem o repositório.
     let onServer: Bool?
     let copied: Bool
+    let isRefreshing: Bool
     let onCopy: () -> Void
+    let onRefresh: () -> Void
     let onRemove: () -> Void
     @Environment(\.openURL) private var openURL
 
@@ -138,20 +190,25 @@ struct RepositoryCard: View {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Text(repo.name).font(.headline)
                 if !repo.badgeLabel.isEmpty { RepoBadge(text: repo.badgeLabel) }
+                if RepositoryURL.isInsecure(repo.indexURL) {
+                    Label("HTTP", systemImage: "lock.open.fill")
+                        .labelStyle(.titleAndIcon)
+                        .font(.caption2.weight(.bold))
+                        .foregroundStyle(.orange)
+                        .accessibilityLabel("Conexão sem criptografia")
+                }
                 Spacer()
                 Menu {
+                    Button { onRefresh() } label: { Label("Atualizar", systemImage: "arrow.clockwise") }
                     Button { onCopy() } label: { Label("Copiar endereço", systemImage: "doc.on.doc") }
                     if let site = repo.websiteURL {
-                        Button { openURL(site) } label: { Label("Abrir site", systemImage: "safari") }
-                    }
-                    if let discord = repo.discordURL {
-                        Button { openURL(discord) } label: { Label("Discord", systemImage: "bubble.left.and.bubble.right") }
+                        Button { openURL(site) } label: { Label("Abrir site do repositório", systemImage: "safari") }
                     }
                     Divider()
                     Button(role: .destructive) { onRemove() } label: { Label("Remover", systemImage: "trash") }
                 } label: {
                     Image(systemName: "ellipsis.circle").font(.title3)
-                        .frame(width: 32, height: 32).contentShape(Rectangle())
+                        .frame(width: 44, height: 44).contentShape(Rectangle())
                 }
                 .accessibilityLabel("Mais opções de \(repo.name)")
             }
@@ -166,36 +223,68 @@ struct RepositoryCard: View {
                 Button(action: onCopy) {
                     Label(copied ? "Copiado" : "Copiar", systemImage: copied ? "checkmark" : "doc.on.doc")
                 }
-                .buttonStyle(.bordered)
-                if let discord = repo.discordURL {
-                    Button { openURL(discord) } label: { Label("Discord", systemImage: "bubble.left.and.bubble.right") }
-                        .buttonStyle(.bordered)
-                } else if let site = repo.websiteURL {
-                    Button { openURL(site) } label: { Label("Site", systemImage: "safari") }
-                        .buttonStyle(.bordered)
+                .fySecondaryButton()
+                Button(action: onRefresh) {
+                    if isRefreshing {
+                        ProgressView().controlSize(.small)
+                    } else {
+                        Label("Atualizar", systemImage: "arrow.clockwise")
+                    }
                 }
+                .fySecondaryButton()
+                .disabled(isRefreshing)
+                .accessibilityLabel(isRefreshing ? "Atualizando \(repo.name)" : "Atualizar \(repo.name)")
             }
             .controlSize(.small)
             .labelStyle(.titleAndIcon)
+            .buttonBorderShape(.capsule)
 
-            HStack(spacing: 10) {
-                if let n = repo.extensionCount {
-                    Label("\(n) extensões", systemImage: "puzzlepiece.extension").labelStyle(.titleAndIcon)
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 10) {
+                    if let n = repo.extensionCount {
+                        Label("\(n) extensões", systemImage: "puzzlepiece.extension")
+                    }
+                    if let format = record?.format.flatMap(RepositoryIndexFormat.init(rawValue:)) {
+                        Text(format.label)
+                    }
                 }
+                syncStatus
                 if let onServer {
                     Label(onServer ? "No servidor" : "Não está no servidor",
                           systemImage: onServer ? "checkmark.circle" : "exclamationmark.circle")
                         .foregroundStyle(onServer ? Color.green : Color.orange)
                 }
             }
+            .labelStyle(.titleAndIcon)
             .font(.caption)
             .foregroundStyle(.secondary)
 
             if let error {
-                Label(error, systemImage: "wifi.exclamationmark").font(.caption).foregroundStyle(.orange)
+                Label(error, systemImage: "wifi.exclamationmark")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+                    .accessibilityLabel("Erro na última atualização: \(error)")
             }
         }
         .padding(.vertical, 4)
+    }
+
+    @ViewBuilder
+    private var syncStatus: some View {
+        if let date = record?.lastSyncAt {
+            if record?.lastSyncSucceeded == false {
+                Label {
+                    Text("Falhou \(date, style: .relative) atrás — exibindo a última cópia salva")
+                } icon: { Image(systemName: "exclamationmark.triangle") }
+                    .foregroundStyle(.orange)
+            } else {
+                Label {
+                    Text("Sincronizado \(date, style: .relative) atrás")
+                } icon: { Image(systemName: "checkmark.circle") }
+            }
+        } else {
+            Label("Ainda não sincronizado", systemImage: "clock")
+        }
     }
 }
 
@@ -213,182 +302,192 @@ struct RepoBadge: View {
 
 struct AddRepositoryRequest: Identifiable, Hashable {
     var initialURL: String
-    var focusSuggestions = false
-    var id: String { (focusSuggestions ? "find:" : "add:") + initialURL }
+    var id: String { "add:" + initialURL }
 }
 
-/// Adicionar repositório: colar/digitar o endereço (ou escolher uma sugestão),
-/// verificar o índice e confirmar vendo nome, selo, total de extensões e a
-/// impressão digital da chave de assinatura.
+/// Adicionar repositório: colar o endereço, "Validar" (baixa e confere o
+/// índice) e "Adicionar" (só depois de validado). Nada é salvo antes disso.
 struct AddRepositorySheet: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
     let request: AddRepositoryRequest
 
     @State private var text = ""
+    @State private var task: Task<Void, Never>?
     @State private var checking = false
     @State private var adding = false
     @State private var errorMessage: String?
-    @State private var preview: (url: String, snapshot: CatalogSnapshot)?
+    @State private var preview: RepositoryPreview?
+    @FocusState private var fieldFocused: Bool
+
+    private var trimmed: String { text.trimmingCharacters(in: .whitespacesAndNewlines) }
 
     var body: some View {
         NavigationStack {
-            ScrollViewReader { proxy in
-                Form {
-                    Section {
-                        TextField("https://…/index.pb", text: $text, axis: .vertical)
-                            .textInputAutocapitalization(.never)
-                            .autocorrectionDisabled()
-                            .keyboardType(.URL)
-                            .font(.callout.monospaced())
-                            .onSubmit { Task { await check() } }
-                            .accessibilityIdentifier("repositoryURLField")
-                        HStack {
-                            PasteButton(payloadType: String.self) { strings in
-                                guard let first = strings.first else { return }
-                                Task { @MainActor in
-                                    text = first.trimmingCharacters(in: .whitespacesAndNewlines)
-                                    await check()
-                                }
-                            }
-                            .labelStyle(.titleAndIcon)
-                            .buttonBorderShape(.capsule)
-                            Spacer()
-                            Button {
-                                Task { await check() }
-                            } label: {
-                                if checking { ProgressView() } else { Text("Verificar") }
-                            }
-                            .buttonStyle(.borderedProminent)
-                            .disabled(text.trimmingCharacters(in: .whitespaces).isEmpty || checking)
+            Form {
+                Section {
+                    TextField("https://…/index.min.json", text: $text, axis: .vertical)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .keyboardType(.URL)
+                        .textContentType(.URL)
+                        .font(.callout.monospaced())
+                        .focused($fieldFocused)
+                        .onSubmit { validate() }
+                        .accessibilityLabel("URL do repositório")
+                        .accessibilityIdentifier("repositoryURLField")
+                    HStack {
+                        PasteButton(payloadType: String.self) { strings in
+                            guard let first = strings.first else { return }
+                            Task { @MainActor in text = first.trimmingCharacters(in: .whitespacesAndNewlines) }
                         }
-                    } header: {
-                        Text("Endereço do repositório")
-                    } footer: {
-                        Text("Aceita o endereço do index.pb ou do repo.json, apenas HTTPS. "
-                             + "Links \"Adicionar ao Mihon/Tachiyomi\" de sites de repositórios também abrem esta tela.")
-                    }
-
-                    if let errorMessage {
-                        Section {
-                            Label(errorMessage, systemImage: "exclamationmark.triangle").foregroundStyle(.orange)
+                        .labelStyle(.titleAndIcon)
+                        .buttonBorderShape(.capsule)
+                        Spacer()
+                        if checking {
+                            ProgressView().accessibilityLabel("Validando")
+                            Button("Parar") { task?.cancel() }
+                                .accessibilityHint("Cancela a validação em andamento")
+                        } else {
+                            Button("Validar") { validate() }
+                                .fySecondaryButton()
+                                .disabled(trimmed.isEmpty)
+                                .accessibilityIdentifier("validateRepository")
                         }
                     }
-
-                    if let p = preview {
-                        previewSection(p)
-                    }
-
-                    Section {
-                        ForEach(RepositorySuggestion.all) { s in
-                            let added = model.isRepositoryAdded(s.indexURL)
-                            Button {
-                                text = s.indexURL
-                                Task { await check() }
-                            } label: {
-                                HStack {
-                                    VStack(alignment: .leading, spacing: 2) {
-                                        Text(s.name).foregroundStyle(.primary)
-                                        Text(s.note).font(.caption).foregroundStyle(.secondary)
-                                    }
-                                    Spacer()
-                                    if added {
-                                        Text("Adicionado").font(.caption).foregroundStyle(.secondary)
-                                    } else {
-                                        Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
-                                    }
-                                }
-                            }
-                            .disabled(added)
-                        }
-                    } header: {
-                        Text("Encontrar repositório")
-                    } footer: {
-                        Text("Repositórios mantidos pela comunidade, sem vínculo com o FreeYomi. "
-                             + "Também é possível colar o endereço de qualquer outro.")
-                    }
-                    .id("suggestions")
+                } header: {
+                    Text("Endereço do repositório")
+                } footer: {
+                    Text("Aceita index.min.json, repo.json, index.json, index.pb ou um índice do FreeYomi, por HTTPS. "
+                         + "Links \"Adicionar repositório\" de sites também abrem esta tela, sempre pedindo confirmação.")
                 }
-                .onAppear {
-                    if request.focusSuggestions {
-                        DispatchQueue.main.async { withAnimation { proxy.scrollTo("suggestions", anchor: .top) } }
+
+                if model.settings.allowInsecureRepositoryHTTP {
+                    Section {
+                        Label("Repositórios em HTTP estão permitidos nas configurações. Em HTTP, qualquer pessoa na "
+                              + "mesma rede pode ler ou alterar a lista baixada. O iOS só permite HTTP na rede local.",
+                              systemImage: "lock.open.trianglebadge.exclamationmark")
+                            .font(.caption)
+                            .foregroundStyle(.orange)
                     }
+                }
+
+                if let errorMessage {
+                    Section {
+                        Label(errorMessage, systemImage: "exclamationmark.triangle")
+                            .foregroundStyle(.orange)
+                            .accessibilityLabel("Erro: \(errorMessage)")
+                    }
+                }
+
+                if let preview {
+                    previewSection(preview)
                 }
             }
             .navigationTitle("Adicionar repositório")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Cancelar") { dismiss() } }
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancelar") { task?.cancel(); dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button {
+                        add()
+                    } label: {
+                        if adding { ProgressView() } else { Text("Adicionar").bold() }
+                    }
+                    .disabled(preview == nil || adding || checking)
+                    .accessibilityIdentifier("confirmAddRepository")
+                }
             }
             .onAppear {
                 if text.isEmpty && !request.initialURL.isEmpty {
                     text = request.initialURL
-                    Task { await check() }
+                    validate()
+                } else if request.initialURL.isEmpty {
+                    fieldFocused = true
                 }
             }
             .onChange(of: text) { _, new in
                 if let p = preview, !RepositoryURL.same(p.url, new) { preview = nil }
             }
+            .onDisappear { task?.cancel() }
         }
     }
 
     @ViewBuilder
-    private func previewSection(_ p: (url: String, snapshot: CatalogSnapshot)) -> some View {
-        let repo = ExtensionRepository(indexURL: p.url, index: p.snapshot.index)
-        let ptBR = p.snapshot.index.extensions.filter { $0.languages.contains("pt-BR") }.count
-        let adult = p.snapshot.index.extensions.filter { $0.contentWarning == .nsfw }.count
+    private func previewSection(_ p: RepositoryPreview) -> some View {
+        let repo = p.repository
+        let index = p.snapshot.index
+        let compatible = index.extensions.filter { CompatibilityResolver.resolve($0, adapters: model.extensions.adapters).isCompatible }.count
+        let android = index.extensions.filter { !$0.isNative }.count
+        let adult = index.extensions.filter { $0.contentWarning == .nsfw }.count
         Section {
             HStack(spacing: 8) {
+                Image(systemName: "checkmark.seal.fill").foregroundStyle(.green).accessibilityHidden(true)
                 Text(repo.name).font(.headline)
                 if !repo.badgeLabel.isEmpty { RepoBadge(text: repo.badgeLabel) }
             }
-            LabeledContent("Extensões", value: "\(repo.extensionCount ?? 0)")
-            LabeledContent("Com fontes em português (Brasil)", value: "\(ptBR)")
+            LabeledContent("Formato", value: index.format.label)
+            LabeledContent("Extensões", value: "\(index.extensions.count)")
+            LabeledContent("Compatíveis com iOS", value: "\(compatible)")
+            if android > 0 { LabeledContent("Android (exigem servidor)", value: "\(android)") }
             if adult > 0 { LabeledContent("Marcadas como 18+", value: "\(adult)") }
+            if index.skippedEntries > 0 {
+                LabeledContent("Entradas ignoradas (incompletas)", value: "\(index.skippedEntries)")
+            }
             if let site = repo.websiteURL { LabeledContent("Site", value: site.host ?? site.absoluteString) }
             if let key = repo.signingKeyFingerprint {
                 LabeledContent("Chave de assinatura") { Text(key).font(.caption.monospaced()) }
             }
-            Button {
-                Task { await add(p) }
-            } label: {
-                HStack {
-                    Spacer()
-                    if adding { ProgressView() } else { Text("Adicionar").bold() }
-                    Spacer()
-                }
+            if p.allowsInsecureHTTP {
+                Label("Este repositório usa HTTP, sem criptografia.", systemImage: "lock.open.fill")
+                    .foregroundStyle(.orange)
             }
-            .buttonStyle(.borderedProminent)
-            .disabled(adding)
-            .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
-            .accessibilityIdentifier("confirmAddRepository")
         } header: {
-            Text("Repositório encontrado")
+            Text("Índice válido")
         } footer: {
-            Text(model.serverClient == nil
-                 ? "As extensões dele aparecerão no catálogo. Para instalá-las, conecte o servidor de extensões."
-                 : "Também será adicionado ao seu servidor; as extensões dele aparecerão em Explorar › Extensões para instalar.")
+            Text("Toque em Adicionar para salvar. "
+                 + (model.serverClient == nil
+                    ? "Extensões Android aparecerão como incompatíveis até você conectar um servidor de extensões."
+                    : "Ele também será enviado ao seu servidor de extensões."))
         }
     }
 
-    private func check() async {
+    private func validate() {
+        guard !trimmed.isEmpty, !checking else { return }
         errorMessage = nil
         preview = nil
         checking = true
-        defer { checking = false }
-        do {
-            preview = try await model.previewRepository(text)
-        } catch {
-            errorMessage = error.localizedDescription
+        let raw = trimmed
+        task = Task {
+            defer { checking = false }
+            do {
+                let result = try await model.previewRepository(raw)
+                if !Task.isCancelled { preview = result }
+                UIAccessibility.post(notification: .announcement, argument: "Índice válido: \(result.repository.name)")
+            } catch {
+                if let fy = error as? FYError, fy == .cancelled { return }
+                if Task.isCancelled { errorMessage = "Validação cancelada."; return }
+                errorMessage = error.localizedDescription
+                UIAccessibility.post(notification: .announcement, argument: error.localizedDescription)
+            }
         }
     }
 
-    private func add(_ p: (url: String, snapshot: CatalogSnapshot)) async {
+    private func add() {
+        guard let p = preview, !adding else { return }
         adding = true
-        defer { adding = false }
-        let note = await model.addRepository(url: p.url, snapshot: p.snapshot)
-        Haptics.success()
-        dismiss()
-        if let note { model.alertMessage = note }
+        Task {
+            defer { adding = false }
+            do {
+                let note = try await model.addRepository(p)
+                Haptics.success()
+                dismiss()
+                if let note { model.alertMessage = note }
+            } catch {
+                errorMessage = error.localizedDescription
+            }
+        }
     }
 }

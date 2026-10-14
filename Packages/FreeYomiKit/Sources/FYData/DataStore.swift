@@ -19,6 +19,10 @@ public final class DataStore: @unchecked Sendable {
     public let categories: CategoryRepository
     public let downloads: DownloadRepository
     public let settings: SettingsRepository
+    /// Repositórios de extensões cadastrados pelo usuário.
+    public let extensionRepos: RepositoryRecordStore
+    /// Extensões nativas instaladas.
+    public let installedExtensions: InstalledExtensionStore
 
     /// Abre o banco em `url`. Se o arquivo estiver corrompido, ele é renomeado
     /// para `<nome>.corrupt-<timestamp>` (nunca apagado) e um banco novo é criado.
@@ -66,6 +70,8 @@ public final class DataStore: @unchecked Sendable {
         categories = CategoryRepository(db: db)
         downloads = DownloadRepository(db: db)
         settings = SettingsRepository(db: db)
+        extensionRepos = RepositoryRecordStore(db: db)
+        installedExtensions = InstalledExtensionStore(db: db)
     }
 }
 
@@ -513,5 +519,137 @@ public struct SettingsRepository: Sendable {
         let json = String(decoding: try encoder.encode(s), as: UTF8.self)
         try db.run("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
                    Self.key, json)
+    }
+}
+
+// MARK: - Repositórios de extensões
+
+public struct RepositoryRecordStore: Sendable {
+    let db: SQLiteDatabase
+
+    public func all() throws -> [RepositoryRecord] {
+        try db.query("SELECT * FROM extension_repositories ORDER BY position, added_at").map(Self.map)
+    }
+
+    public func record(canonicalKey: String) throws -> RepositoryRecord? {
+        try db.query("SELECT * FROM extension_repositories WHERE canonical_key = ?", canonicalKey).first.map(Self.map)
+    }
+
+    /// Insere um repositório novo no fim da lista. Falha se o endereço já existir.
+    public func insert(_ r: RepositoryRecord) throws -> RepositoryRecord {
+        try db.transaction { () -> RepositoryRecord in
+            if try record(canonicalKey: r.canonicalKey) != nil {
+                throw FYError.database("repositório já cadastrado")
+            }
+            let next = (try db.query("SELECT IFNULL(MAX(position), -1) + 1 AS n FROM extension_repositories").first?
+                .int("n")) ?? 0
+            var copy = r
+            copy.position = next
+            try db.run("""
+                INSERT INTO extension_repositories (url, canonical_key, name, badge_label, website, discord, signing_key,
+                    format, extension_count, position, allows_http, added_at, last_sync_at, last_sync_ok, last_sync_error)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, copy.url, copy.canonicalKey, copy.name, copy.badgeLabel, copy.website, copy.discord, copy.signingKey,
+                       copy.format, copy.extensionCount, copy.position, copy.allowsInsecureHTTP, copy.addedAt,
+                       copy.lastSyncAt, copy.lastSyncSucceeded, copy.lastSyncError)
+            return copy
+        }
+    }
+
+    /// Registra o resultado de uma sincronização (metadados só mudam em caso de sucesso).
+    public func updateSync(url: String, at date: Date, succeeded: Bool, error: String?,
+                           name: String? = nil, badgeLabel: String? = nil, website: String? = nil, discord: String? = nil,
+                           signingKey: String? = nil, format: String? = nil, extensionCount: Int? = nil) throws {
+        if succeeded {
+            try db.run("""
+                UPDATE extension_repositories SET last_sync_at = ?, last_sync_ok = 1, last_sync_error = NULL,
+                    name = ?, badge_label = ?, website = ?, discord = ?, signing_key = ?, format = ?, extension_count = ?
+                WHERE url = ?
+                """, date, name, badgeLabel, website, discord, signingKey, format, extensionCount, url)
+        } else {
+            try db.run("UPDATE extension_repositories SET last_sync_at = ?, last_sync_ok = 0, last_sync_error = ? WHERE url = ?",
+                       date, error, url)
+        }
+    }
+
+    public func setAllowsHTTP(url: String, _ value: Bool) throws {
+        try db.run("UPDATE extension_repositories SET allows_http = ? WHERE url = ?", value, url)
+    }
+
+    /// Remove só o registro do repositório. Biblioteca, capítulos, downloads e
+    /// extensões instaladas não são tocados.
+    public func delete(url: String) throws {
+        try db.run("DELETE FROM extension_repositories WHERE url = ?", url)
+    }
+
+    /// Reordena conforme a lista de endereços.
+    public func reorder(_ urls: [String]) throws {
+        try db.transaction {
+            for (i, url) in urls.enumerated() {
+                try db.run("UPDATE extension_repositories SET position = ? WHERE url = ?", i, url)
+            }
+        }
+    }
+
+    static func map(_ r: SQLRow) -> RepositoryRecord {
+        RepositoryRecord(url: r.string("url"), canonicalKey: r.string("canonical_key"), name: r.optionalString("name"),
+                         badgeLabel: r.optionalString("badge_label"), website: r.optionalString("website"),
+                         discord: r.optionalString("discord"), signingKey: r.optionalString("signing_key"),
+                         format: r.optionalString("format"), extensionCount: r.optionalInt64("extension_count").map { Int($0) },
+                         position: r.int("position"), allowsInsecureHTTP: r.bool("allows_http"),
+                         addedAt: r.date("added_at"), lastSyncAt: r.optionalDate("last_sync_at"),
+                         lastSyncSucceeded: r.optionalInt64("last_sync_ok").map { $0 != 0 },
+                         lastSyncError: r.optionalString("last_sync_error"))
+    }
+}
+
+// MARK: - Extensões instaladas
+
+public struct InstalledExtensionStore: Sendable {
+    let db: SQLiteDatabase
+
+    public func all() throws -> [InstalledExtensionRecord] {
+        try db.query("SELECT * FROM installed_extensions ORDER BY name COLLATE NOCASE").map(Self.map)
+    }
+
+    public func record(id: String) throws -> InstalledExtensionRecord? {
+        try db.query("SELECT * FROM installed_extensions WHERE id = ?", id).first.map(Self.map)
+    }
+
+    /// Instala ou atualiza. Numa atualização, a data de instalação original é mantida.
+    public func upsert(_ e: InstalledExtensionRecord) throws {
+        try db.run("""
+            INSERT INTO installed_extensions (id, name, repository_url, version_code, version_name, adapter, adapter_version,
+                manifest, sha256, integrity_verified, auto_update, installed_at, updated_at, last_error)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET name = excluded.name, repository_url = excluded.repository_url,
+                version_code = excluded.version_code, version_name = excluded.version_name, adapter = excluded.adapter,
+                adapter_version = excluded.adapter_version, manifest = excluded.manifest, sha256 = excluded.sha256,
+                integrity_verified = excluded.integrity_verified, updated_at = excluded.updated_at,
+                last_error = excluded.last_error
+            """, e.id, e.name, e.repositoryURL, e.versionCode, e.versionName, e.adapter, e.adapterVersion, e.manifest,
+                   e.sha256, e.integrityVerified, e.autoUpdate, e.installedAt, e.updatedAt, e.lastError)
+    }
+
+    public func setError(id: String, _ message: String?) throws {
+        try db.run("UPDATE installed_extensions SET last_error = ? WHERE id = ?", message, id)
+    }
+
+    public func setAutoUpdate(id: String, _ value: Bool) throws {
+        try db.run("UPDATE installed_extensions SET auto_update = ? WHERE id = ?", value, id)
+    }
+
+    public func delete(id: String) throws {
+        try db.run("DELETE FROM installed_extensions WHERE id = ?", id)
+    }
+
+    static func map(_ r: SQLRow) -> InstalledExtensionRecord {
+        InstalledExtensionRecord(id: r.string("id"), name: r.string("name"), repositoryURL: r.optionalString("repository_url"),
+                                 versionCode: r.int64("version_code"), versionName: r.string("version_name"),
+                                 adapter: r.string("adapter"), adapterVersion: r.int("adapter_version"),
+                                 manifest: r.data("manifest") ?? Data(), sha256: r.string("sha256"),
+                                 integrityVerified: r.bool("integrity_verified"), autoUpdate: r.bool("auto_update"),
+                                 installedAt: r.date("installed_at"), updatedAt: r.date("updated_at"),
+                                 lastError: r.optionalString("last_error"))
     }
 }

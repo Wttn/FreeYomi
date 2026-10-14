@@ -338,8 +338,7 @@ struct ReaderSettingsView: View {
 
 struct ExtensionSettingsView: View {
     @Environment(AppModel.self) private var model
-
-    static let mangaDexLanguages = ["pt-br", "en", "es-la", "es", "fr", "it", "de", "ja", "ko", "zh", "id", "ru", "tr", "vi"]
+    @State private var confirmHTTP = false
 
     private var serverSummary: String {
         switch model.serverState {
@@ -358,19 +357,42 @@ struct ExtensionSettingsView: View {
                     ExtensionRepositoriesView()
                 } label: {
                     LabeledContent {
-                        Text("\(model.settings.extensionRepositories.count)").foregroundStyle(.secondary)
+                        Text("\(model.repositories.count)").foregroundStyle(.secondary)
                     } label: {
-                        Label("Repositórios de extensões", systemImage: "shippingbox")
+                        Label("Gerenciar repositórios", systemImage: "shippingbox")
                     }
                 }
+                .accessibilityIdentifier("settingsRepositoriesLink")
+                Toggle("Atualizar listas ao abrir o app", isOn: $model.settings.refreshRepositoriesOnLaunch)
+                Toggle("Permitir repositórios em HTTP", isOn: Binding(
+                    get: { model.settings.allowInsecureRepositoryHTTP },
+                    set: { newValue in
+                        if newValue { confirmHTTP = true } else { model.settings.allowInsecureRepositoryHTTP = false }
+                    }))
+            } header: {
+                FYSectionHeader("Repositórios de extensões")
             } footer: {
-                Text("Adicione repositórios (index.pb ou repo.json) como no Mihon e no Tachimanga. "
-                     + "Apenas metadados são baixados no iPhone.")
+                Text("Você escolhe os repositórios: o FreeYomi não vem com nenhum. Os endereços ficam só neste aparelho "
+                     + "e não são enviados ao FreeYomi. HTTP fica desligado por padrão; o iOS só o permite na rede local.")
             }
+
             Section {
+                NavigationLink {
+                    ExtensionsScreen()
+                } label: {
+                    LabeledContent {
+                        Text("\(model.installedExtensions.count) instaladas").foregroundStyle(.secondary)
+                    } label: {
+                        Label("Extensões", systemImage: "puzzlepiece.extension")
+                    }
+                }
                 Toggle("Mostrar conteúdo adulto (18+)", isOn: $model.settings.showNSFWExtensions)
+                Toggle("Economia de dados (imagens comprimidas)", isOn: $model.settings.sourceDataSaver)
+            } header: {
+                FYSectionHeader("Extensões e fontes")
             } footer: {
-                Text("Vale para o catálogo, para as fontes do servidor e para o MangaDex.")
+                Text("Extensões compatíveis com iOS são manifestos de configuração interpretados por adaptadores do "
+                     + "próprio app; nenhum código baixado é executado.")
             }
 
             Section {
@@ -383,29 +405,31 @@ struct ExtensionSettingsView: View {
                         Label("Servidor de extensões", systemImage: "server.rack")
                     }
                 }
+                .accessibilityIdentifier("extensionServerLink")
             } header: {
-                FYSectionHeader("Instalar extensões")
+                FYSectionHeader("Extensões Android")
             } footer: {
-                Text("As extensões rodam no Suwayomi-Server, no seu computador. O iPhone só exibe e lê.")
-            }
-
-            Section {
-                Toggle("MangaDex", isOn: $model.settings.mangaDexEnabled)
-                if model.settings.mangaDexEnabled {
-                    Picker("Idioma das traduções", selection: $model.settings.mangaDexLanguage) {
-                        ForEach(Self.mangaDexLanguages, id: \.self) { Text(LanguageName.display($0)).tag($0) }
-                    }
-                    Toggle("Economia de dados (imagens comprimidas)", isOn: $model.settings.mangaDexDataSaver)
-                }
-            } header: {
-                FYSectionHeader("Fontes nativas (sem servidor)")
-            } footer: {
-                Text("Dados e imagens fornecidos pelo MangaDex (mangadex.org). Os grupos de tradução são creditados em cada capítulo. "
-                     + "Capítulos publicados só em sites oficiais externos não aparecem.")
+                Text("Extensões Android só funcionam num Suwayomi-Server instalado por você. O iPhone só exibe e lê.")
             }
         }
         .navigationTitle("Extensões")
         .navigationBarTitleDisplayMode(.inline)
+        .alert("Permitir HTTP?", isPresented: $confirmHTTP) {
+            Button("Cancelar", role: .cancel) {}
+            Button("Permitir", role: .destructive) { model.settings.allowInsecureRepositoryHTTP = true }
+        } message: {
+            Text("Em HTTP, a lista de extensões trafega sem criptografia: qualquer pessoa na mesma rede pode lê-la ou "
+                 + "alterá-la. Use apenas para um repositório seu na rede local. Nunca inclua senhas no endereço.")
+        }
+    }
+}
+
+/// "Extensões" aberta a partir de Mais › Extensões.
+struct ExtensionsScreen: View {
+    var body: some View {
+        ExtensionsView()
+            .navigationTitle("Extensões")
+            .navigationBarTitleDisplayMode(.inline)
     }
 }
 
@@ -430,7 +454,8 @@ struct SecuritySettingsView: View {
                 Text("""
                 • Sem anúncios, rastreadores ou SDKs de análise.
                 • Biblioteca, histórico e preferências ficam apenas neste aparelho.
-                • O app só acessa a internet para baixar o catálogo de metadados e o conteúdo das fontes que você usar.
+                • O app só acessa a internet para baixar as listas dos repositórios que você adicionou e o conteúdo das fontes que você usar.
+                • Os endereços dos seus repositórios ficam só neste aparelho.
                 • Nenhum código de terceiros é baixado ou executado.
                 """)
                 .font(.callout)
@@ -478,9 +503,12 @@ struct HelpView: View {
                 Text("Toque no centro para mostrar ou ocultar os controles; nas laterais para virar a página.")
                 Text("No modo direita → esquerda, o lado esquerdo avança, como em um mangá impresso.")
             }
-            Section("Por que as extensões aparecem como incompatíveis?") {
-                Text("As extensões do catálogo Keiyoushi são apps Android (APK). O iOS não executa esse código, "
-                     + "e o FreeYomi não baixa programas de terceiros. Cada fonte precisa de um adaptador nativo.")
+            Section("Repositórios e extensões") {
+                Text("O FreeYomi não vem com repositórios nem fontes online. Em Mais › Extensões › Repositórios, "
+                     + "adicione o endereço de um repositório em que você confia.")
+                Text("Extensões compatíveis com iOS são manifestos de configuração lidos por adaptadores do próprio app. "
+                     + "Extensões Android (APK) aparecem como incompatíveis: o iOS não executa esse código e o FreeYomi "
+                     + "não baixa programas de terceiros. Elas só funcionam num servidor de extensões seu.")
             }
         }
         .navigationTitle("Ajuda")
@@ -505,7 +533,7 @@ struct AboutView: View {
             Section("Créditos e referências") {
                 Text("Inspirado no funcionamento do Mihon/Tachiyomi (Apache-2.0) e na experiência do Tachimanga. "
                      + "Nenhum código, marca ou recurso visual desses projetos foi copiado.")
-                Text("Metadados de extensões: índice público do Keiyoushi (Apache-2.0).")
+                Text("Formatos de índice de repositório compatíveis com os usados pelo Mihon (Apache-2.0).")
             }
             Section("Componentes de terceiros") {
                 LabeledContent("SQLite", value: "Domínio público")

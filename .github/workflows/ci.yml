@@ -23,12 +23,6 @@ jobs:
       - name: Testes
         working-directory: Packages/FreeYomiKit
         run: swift test --parallel
-      - name: Teste ao vivo do índice Keiyoushi (não bloqueante)
-        working-directory: Packages/FreeYomiKit
-        continue-on-error: true
-        env:
-          FY_LIVE_TESTS: "1"
-        run: swift test --filter CatalogClientTests/testLiveKeiyoushiIndex
 
   # App iOS: gera o projeto, compila, roda testes de interface e produz um .ipa sem assinatura.
   ios:
@@ -72,6 +66,9 @@ jobs:
             -resultBundlePath build/TestResults.xcresult \
             CODE_SIGNING_ALLOWED=NO > build-test.log 2>&1 || status=$?
           grep -E "error:|Test Case .*(passed|failed)|\*\* (TEST|BUILD)" build-test.log || true
+          # Erros de compilação e testes que falharam também viram anotações (visíveis sem baixar o log).
+          grep -E "error:" build-test.log | sort -u | head -40 | sed 's/^/::error::/' || true
+          grep -E "Test Case .*failed|XCTAssert.*failed|: error: -\[" build-test.log | sort -u | head -40 | sed 's/^/::error::/' || true
           if [ "$status" -ne 0 ]; then tail -200 build-test.log; exit "$status"; fi
 
       - name: Gerar .ipa sem assinatura

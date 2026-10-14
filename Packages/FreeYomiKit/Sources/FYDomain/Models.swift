@@ -5,7 +5,7 @@ import Foundation
 /// Identificador estável de uma fonte (ex.: "demo", "local", "komga:<uuid>").
 ///
 /// Fontes nativas do FreeYomi usam strings estáveis. IDs numéricos de
-/// extensões Android (Int64 do índice Keiyoushi) ficam apenas no catálogo.
+/// extensões Android (Int64 do índice do repositório) ficam apenas no catálogo.
 public struct SourceID: RawRepresentable, Hashable, Codable, Sendable, CustomStringConvertible,
     ExpressibleByStringLiteral {
     public let rawValue: String

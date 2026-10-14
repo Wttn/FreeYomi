@@ -114,18 +114,24 @@ public struct AppSettings: Codable, Sendable, Hashable {
     public var showNSFWExtensions: Bool = false
     /// Modo anônimo: não registra histórico nem progresso.
     public var incognitoMode: Bool = false
-    /// Fonte nativa do MangaDex.
-    public var mangaDexEnabled: Bool = true
-    public var mangaDexLanguage: String = "pt-br"
-    public var mangaDexDataSaver: Bool = false
+    /// Fontes nativas: pedir imagens comprimidas quando a fonte oferecer.
+    public var sourceDataSaver: Bool = false
     /// Servidor de extensões (Suwayomi-Server). A senha fica no Keychain, nunca aqui.
     public var extensionServerURL: String? = nil
     public var extensionServerUsername: String? = nil
     public var extensionServerAllowHTTP: Bool = true
-    /// Repositório único das versões 0.1–0.3 (mantido só para migração).
-    public var catalogURL: String = "https://raw.githubusercontent.com/keiyoushi/extensions/repo/index.pb"
-    /// Repositórios de extensões, na ordem exibida (ver tela "Repositórios de extensões").
-    public var extensionRepositories: [String] = ["https://raw.githubusercontent.com/keiyoushi/extensions/repo/index.pb"]
+    /// Repositório único das versões 0.1–0.3 (lido só para migração).
+    public var catalogURL: String = ""
+    /// Lista de repositórios das versões 0.3.x (lida só para migração; desde a
+    /// 0.4 os repositórios ficam no banco, tabela `extension_repositories`).
+    /// O app não vem com nenhum repositório.
+    public var extensionRepositories: [String] = []
+    /// A lista acima já foi copiada para o banco.
+    public var repositoriesMigrated: Bool = false
+    /// Permite cadastrar repositórios em HTTP (sem criptografia). Desligado por padrão.
+    public var allowInsecureRepositoryHTTP: Bool = false
+    /// Atualizar os índices dos repositórios ao abrir o app.
+    public var refreshRepositoriesOnLaunch: Bool = true
 
     public init() {}
 
@@ -152,16 +158,31 @@ public struct AppSettings: Codable, Sendable, Hashable {
         demoDataSeeded = try c.decodeIfPresent(Bool.self, forKey: .demoDataSeeded) ?? d.demoDataSeeded
         showNSFWExtensions = try c.decodeIfPresent(Bool.self, forKey: .showNSFWExtensions) ?? d.showNSFWExtensions
         incognitoMode = try c.decodeIfPresent(Bool.self, forKey: .incognitoMode) ?? d.incognitoMode
-        mangaDexEnabled = try c.decodeIfPresent(Bool.self, forKey: .mangaDexEnabled) ?? d.mangaDexEnabled
-        mangaDexLanguage = try c.decodeIfPresent(String.self, forKey: .mangaDexLanguage) ?? d.mangaDexLanguage
-        mangaDexDataSaver = try c.decodeIfPresent(Bool.self, forKey: .mangaDexDataSaver) ?? d.mangaDexDataSaver
+        let legacy = try decoder.container(keyedBy: LegacyKey.self)
+        let legacyDataSaver: Bool? = try? legacy.decodeIfPresent(Bool.self, forKey: LegacyKey("mangaDexDataSaver"))
+        sourceDataSaver = try c.decodeIfPresent(Bool.self, forKey: .sourceDataSaver) ?? legacyDataSaver ?? d.sourceDataSaver
         extensionServerURL = try c.decodeIfPresent(String.self, forKey: .extensionServerURL)
         extensionServerUsername = try c.decodeIfPresent(String.self, forKey: .extensionServerUsername)
         extensionServerAllowHTTP = try c.decodeIfPresent(Bool.self, forKey: .extensionServerAllowHTTP) ?? d.extensionServerAllowHTTP
         catalogURL = try c.decodeIfPresent(String.self, forKey: .catalogURL) ?? d.catalogURL
-        // Migração: quem tinha só `catalogURL` passa a ter uma lista com ele.
-        extensionRepositories = (try? c.decodeIfPresent([String].self, forKey: .extensionRepositories)) ?? [catalogURL]
+        // Migração: quem tinha só `catalogURL` (0.1–0.3) passa a ter uma lista com ele.
+        extensionRepositories = (try? c.decodeIfPresent([String].self, forKey: .extensionRepositories))
+            ?? (catalogURL.isEmpty ? [] : [catalogURL])
+        repositoriesMigrated = try c.decodeIfPresent(Bool.self, forKey: .repositoriesMigrated) ?? d.repositoriesMigrated
+        allowInsecureRepositoryHTTP = try c.decodeIfPresent(Bool.self, forKey: .allowInsecureRepositoryHTTP)
+            ?? d.allowInsecureRepositoryHTTP
+        refreshRepositoriesOnLaunch = try c.decodeIfPresent(Bool.self, forKey: .refreshRepositoriesOnLaunch)
+            ?? d.refreshRepositoriesOnLaunch
         setItemsPerRow(libraryItemsPerRow)
+    }
+
+    /// Chaves de versões antigas.
+    struct LegacyKey: CodingKey {
+        var stringValue: String
+        var intValue: Int? { nil }
+        init(_ s: String) { stringValue = s }
+        init?(stringValue: String) { self.stringValue = stringValue }
+        init?(intValue: Int) { return nil }
     }
 }
 

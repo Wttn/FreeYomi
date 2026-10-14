@@ -55,5 +55,6 @@ Todas as chaves estrangeiras usam `ON DELETE CASCADE`: remover os dados demo apa
 | Nível | Onde | Roda em |
 |---|---|---|
 | Unidade/integração do núcleo (57 casos) | `Packages/FreeYomiKit/Tests` | Linux, Windows (Docker), macOS |
-| Teste ao vivo do índice | `CatalogClientTests.testLiveKeiyoushiIndex` (`FY_LIVE_TESTS=1`) | CI, não bloqueante |
+| Teste ao vivo de um índice escolhido por você | `CatalogClientTests.testLiveRepositoryIndex` (`FY_LIVE_INDEX_URL=<endereço>`) | Local, opcional |
+| Repositórios e extensões | `ExtensionManagerTests`, `IndexFormatTests`, `NativeManifestTests`, `CompatibilityTests` | CI (Linux e macOS) |
 | Interface (5 fluxos da Fase 1 + 3 da Fase 2, incluindo métrica de memória) | `Tests/UITests` | Simulador iOS no CI |

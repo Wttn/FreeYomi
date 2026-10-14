@@ -9,12 +9,16 @@ public struct HTTPRequest: Sendable {
     public var url: URL
     public var headers: [String: String]
     public var body: Data?
+    /// Tempo limite desta requisição (segundos). `nil` usa o padrão da sessão.
+    public var timeout: TimeInterval?
 
-    public init(method: String = "GET", url: URL, headers: [String: String] = [:], body: Data? = nil) {
+    public init(method: String = "GET", url: URL, headers: [String: String] = [:], body: Data? = nil,
+                timeout: TimeInterval? = nil) {
         self.method = method
         self.url = url
         self.headers = headers
         self.body = body
+        self.timeout = timeout
     }
 }
 
@@ -56,6 +60,10 @@ public struct HTTPResponse: Sendable {
 public enum RequestPolicy: Sendable, Equatable {
     /// Qualquer host, somente HTTPS (fontes online e catálogo).
     case httpsOnly
+    /// HTTPS ou HTTP. Só para clientes que validam o destino por conta própria
+    /// (ex.: o catálogo de repositórios, que aceita HTTP apenas quando o
+    /// usuário habilita explicitamente para aquele repositório).
+    case httpsOrHTTP
     /// Somente o servidor pessoal configurado (mesmo esquema, host e porta).
     /// HTTP só é aceito se `allowHTTP` for verdadeiro (rede local).
     case personalServer(base: URL, allowHTTP: Bool)
@@ -64,6 +72,8 @@ public enum RequestPolicy: Sendable, Equatable {
         switch self {
         case .httpsOnly:
             try URLPolicy.validateRemote(url)
+        case .httpsOrHTTP:
+            try URLPolicy.validatePersonalServer(url, allowInsecureHTTP: true)
         case .personalServer(let base, let allowHTTP):
             try URLPolicy.validatePersonalServer(url, allowInsecureHTTP: allowHTTP)
             guard url.host?.lowercased() == base.host?.lowercased(),
@@ -85,7 +95,7 @@ public final class URLSessionHTTPClient: HTTPClient, @unchecked Sendable {
     /// Cabeçalhos acrescentados a todas as requisições (ex.: autenticação do servidor pessoal).
     private let defaultHeaders: [String: String]
 
-    public static let userAgent = "FreeYomi/0.3 (+https://github.com/; leitor de mangás open source)"
+    public static let userAgent = "FreeYomi/0.4 (leitor de mangás open source)"
 
     /// Sessão compartilhada e efêmera (sem cookies nem cache HTTP).
     /// É mantida viva durante todo o processo: além de reaproveitar conexões,
@@ -113,6 +123,7 @@ public final class URLSessionHTTPClient: HTTPClient, @unchecked Sendable {
         var request = URLRequest(url: req.url)
         request.httpMethod = req.method
         request.httpBody = req.body
+        if let timeout = req.timeout { request.timeoutInterval = timeout }
         for (k, v) in defaultHeaders { request.setValue(v, forHTTPHeaderField: k) }
         for (k, v) in req.headers { request.setValue(v, forHTTPHeaderField: k) }
 
@@ -124,6 +135,8 @@ public final class URLSessionHTTPClient: HTTPClient, @unchecked Sendable {
             throw FYError.cancelled
         } catch let error as URLError where error.code == .cancelled {
             throw FYError.cancelled
+        } catch let error as URLError where error.code == .timedOut {
+            throw FYError.network("tempo limite esgotado")
         } catch {
             throw FYError.network((error as NSError).localizedDescription)
         }

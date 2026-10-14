@@ -42,7 +42,7 @@ let package = Package(
         // Persistência SQLite, migrações e repositórios
         .target(name: "FYData", dependencies: ["FYCore", "FYDomain", "CSQLite"]),
 
-        // Protocolo de fontes, fonte demonstrativa, catálogo Keiyoushi
+        // Protocolo de fontes, fonte demonstrativa, índices de repositórios, extensões nativas
         .target(name: "FYSources", dependencies: ["FYCore", "FYDomain"]),
 
         // Casos de uso que combinam fontes e persistência
