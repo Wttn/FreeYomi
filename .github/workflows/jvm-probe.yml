@@ -196,8 +196,10 @@ jobs:
             LOAD=$(grep -E "JVMProbe.app/JVMProbe" "$HSERR" | grep -oE "^0x[0-9a-f]+" | head -1)
             if [ -n "$BIN" ] && [ -n "$PC" ] && [ -n "$LOAD" ]; then
               atos -o "$BIN" -l "$LOAD" "$PC" > "$OUT/crash-symbol.txt" 2>&1 || true
-              grep -oE "0x[0-9a-f]{9,}" "$HSERR" | sort -u | head -60 | xargs atos -o "$BIN" -l "$LOAD" > "$OUT/addresses.txt" 2>&1 || true
+              grep -oE "0x[0-9a-f]{9,}" "$HSERR" | sort -u | xargs atos -o "$BIN" -l "$LOAD" 2>&1 | grep " in \| (" > "$OUT/addresses.txt" || true
             fi
+            # Relatório de travamento do macOS/simulador (pilha nativa simbolizada).
+            find ~/Library/Logs/DiagnosticReports -name 'JVMProbe*' -newer "$HSERR" 2>/dev/null | head -2 | while read r; do cp "$r" "$OUT/"; done
           fi
           ls -la "$OUT"
           cd /tmp/ci-logs
