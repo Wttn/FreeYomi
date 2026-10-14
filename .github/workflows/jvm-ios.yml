@@ -70,10 +70,11 @@ jobs:
       - name: Configurar
         working-directory: mobile
         run: |
+          trap 'echo "::error title=Configurar (linha $LINENO)::$BASH_COMMAND"' ERR
           SUPPORT=$(cd ../support && pwd)
-          FFI=$(dirname "$(find "$SUPPORT" -path '*libffi*' -name ffi.h | head -1)")
-          FFILIB=$(dirname "$(find "$SUPPORT" -path '*libffi*' -name 'libffi*.a' | head -1)")
-          CUPS=$(find "$SUPPORT" -maxdepth 2 -type d -name 'cups-*' | head -1)
+          FFI=$(dirname "$(find "$SUPPORT" -path '*libffi*' -name ffi.h | sed -n 1p)")
+          FFILIB=$(dirname "$(find "$SUPPORT" -path '*libffi*' -name 'libffi*.a' | sed -n 1p)")
+          CUPS=$(find "$SUPPORT" -maxdepth 2 -type d -name 'cups-*' | sed -n 1p)
           echo "libffi include=$FFI lib=$FFILIB cups=$CUPS"
           SDK=$(xcrun --sdk ${{ matrix.sdk }} --show-sdk-path)
           EXTRA=()
