@@ -91,24 +91,29 @@ jobs:
         working-directory: mobile
         run: |
           if ! make CONF=ios-aarch64-zero-release static-libs-image > build-libs.log 2>&1; then
-            grep -E "error:|Error [0-9]|undefined|No such file" build-libs.log | sort -u | head -40 | sed 's/^/::error title=static-libs::/'
+            grep -iE "error|\*\*\*|undefined|No such file|fatal" build-libs.log | grep -v "warning" | tail -40 | sed 's/^/::error title=static-libs::/'
             tail -120 build-libs.log
             exit 1
           fi
           tail -20 build-libs.log
 
-      - name: Compilar imagem com as classes (jdk-image, para lib/modules)
-        id: jdkimage
+      - name: Compilar as classes Java (imagem "explodida")
+        id: classes
         continue-on-error: true
         working-directory: mobile
         run: |
-          if ! make CONF=ios-aarch64-zero-release jdk-image > build-image.log 2>&1; then
-            grep -E "error:|Error [0-9]|undefined|No such file" build-image.log | sort -u | head -40 | sed 's/^/::warning title=jdk-image::/'
-            tail -80 build-image.log
+          # jdk-image tenta ligar um libjvm dinâmico, o que o iOS não suporta.
+          # As classes compiladas (build/<conf>/jdk/modules/<módulo>) servem como
+          # JDK "explodido": o HotSpot as carrega de <java.home>/modules/<módulo>.
+          if ! make CONF=ios-aarch64-zero-release java > build-java.log 2>&1; then
+            grep -iE "error|\*\*\*" build-java.log | grep -v warning | tail -30 | sed 's/^/::warning title=classes::/'
+            tail -60 build-java.log
             exit 1
           fi
-          tail -20 build-image.log
-          ls -la build/ios-aarch64-zero-release/images/jdk/lib/modules | sed 's/^/::notice title=modules::/' || true
+          J=build/ios-aarch64-zero-release/jdk
+          ls $J | tr '\n' ' ' | sed 's/^/::notice title=jdk explodido::/'; echo
+          ls $J/modules | wc -l | sed 's/^/::notice title=módulos::/'
+          ls $J/lib $J/conf 2>/dev/null | tr '\n' ' ' | sed 's/^/::notice title=lib+conf::/'; echo
 
       - name: Inventário
         working-directory: mobile/build/ios-aarch64-zero-release/images
@@ -129,8 +134,19 @@ jobs:
           mkdir -p include && cp -R "$INC"/* include/ 2>/dev/null || cp $GITHUB_WORKSPACE/mobile/src/java.base/share/native/include/*.h $GITHUB_WORKSPACE/mobile/src/java.base/unix/native/include/*.h include/
           # JAVA_HOME para o app: classes (lib/modules), configuração e dados, sem executáveis.
           mkdir -p javahome
-          if [ -d jdk ]; then
-            (cd jdk && tar -cf - conf lib --exclude='*.dylib' --exclude='lib/server' --exclude='lib/zero' --exclude='lib/jspawnhelper' --exclude='lib/src.zip' --exclude='*.a') | (cd javahome && tar -xf -)
+          J=$GITHUB_WORKSPACE/mobile/build/ios-aarch64-zero-release/jdk
+          if [ -d "$J/modules/java.base" ]; then
+            mkdir -p javahome/modules
+            # Módulos necessários para as extensões (rede, XML, log, criptografia).
+            for m in java.base java.logging java.xml java.naming java.sql java.net.http java.management \
+                     jdk.crypto.ec jdk.crypto.cryptoki jdk.unsupported jdk.zipfs jdk.charsets jdk.localedata java.scripting; do
+              [ -d "$J/modules/$m" ] && cp -R "$J/modules/$m" javahome/modules/
+            done
+            [ -d "$J/conf" ] && cp -R "$J/conf" javahome/
+            if [ -d "$J/lib" ]; then
+              mkdir -p javahome/lib
+              (cd "$J/lib" && find . -type f ! -name '*.dylib' ! -name '*.so' ! -name '*.a' ! -name 'jspawnhelper' ! -name 'src.zip' | tar -cf - -T -) | (cd javahome/lib && tar -xf -)
+            fi
           fi
           du -sh javahome | sed 's/^/::notice title=javahome::/'
           tar -czf "$GITHUB_WORKSPACE/openjdk-${{ matrix.sdk }}-zero.tgz" include static-libs javahome

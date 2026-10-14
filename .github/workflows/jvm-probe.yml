@@ -1,0 +1,137 @@
+# Protótipo, etapa 2: prova de vida da JVM embutida.
+# Usa o OpenJDK compilado pelo workflow "Protótipo JVM iOS" (último sucesso),
+# monta o app JVMProbe, compila para o aparelho e testa no simulador
+# (se houver build do OpenJDK para o simulador).
+name: Protótipo JVM — prova de vida
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [prototipo/jvm-embutida]
+    paths:
+      - .github/workflows/jvm-probe.yml
+      - prototype/jvm/probe/**
+
+concurrency:
+  group: jvm-probe-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  probe:
+    runs-on: macos-26
+    timeout-minutes: 60
+    permissions:
+      actions: read
+      contents: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Selecionar Xcode 26
+        run: |
+          XCODE=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1)
+          if [ -z "$XCODE" ]; then XCODE=/Applications/Xcode.app; fi
+          sudo xcode-select -s "$XCODE"
+
+      - name: JDK para compilar os .jar
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Último OpenJDK para iOS compilado
+        id: jvmrun
+        run: |
+          RUN=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow jvm-ios.yml --branch "$GITHUB_REF_NAME" \
+                --limit 20 --json databaseId,conclusion,status \
+                --jq '[.[] | select(.status=="completed")][0].databaseId')
+          echo "run=$RUN" >> "$GITHUB_OUTPUT"
+          echo "::notice title=OpenJDK::usando o run $RUN"
+
+      - name: Baixar artefatos
+        run: |
+          mkdir -p probe-jvm
+          gh run download "${{ steps.jvmrun.outputs.run }}" --repo "$GITHUB_REPOSITORY" --dir probe-jvm || true
+          find probe-jvm -maxdepth 2 | sed 's/^/::notice title=artefatos::/'
+
+      - name: Preparar o projeto
+        working-directory: prototype/jvm/probe
+        run: |
+          set -e
+          mkdir -p jvm Resources/lib Resources/jars
+          for sdk in iphoneos iphonesimulator; do
+            T=$(ls ../../../probe-jvm/openjdk-$sdk-zero/*.tgz 2>/dev/null | head -1 || true)
+            if [ -n "$T" ]; then mkdir -p jvm/$sdk && tar -xzf "$T" -C jvm/$sdk; fi
+          done
+          ls jvm
+          # Cabeçalhos JNI e JAVA_HOME (as classes são iguais nos dois SDKs).
+          SRC=$(ls -d jvm/iphonesimulator jvm/iphoneos 2>/dev/null | head -1)
+          cp -R "$SRC/include" jvm/include
+          if [ -d "$SRC/javahome" ]; then cp -R "$SRC/javahome/." Resources/lib/; fi
+          ls -la Resources/lib Resources/lib/lib 2>/dev/null | head -20
+          test -f Resources/lib/lib/modules && echo "::notice title=modules::lib/modules presente" || echo "::warning title=modules::sem lib/modules (a JVM não vai iniciar)"
+          # .jar de teste
+          mkdir -p build-java && javac --release 11 -d build-java java/Hello.java java/Plugin.java
+          (cd build-java && jar cf ../Resources/jars/hello.jar Hello.class && jar cf ../Resources/jars/plugin.jar Plugin.class)
+          # Ligação: força a carga das bibliotecas para que os JNI_OnLoad_* estáticos existam no executável.
+          libs() {
+            local base=jvm/$1/static-libs/lib
+            local flags=""
+            for l in zero/libjvm.a libjava.a libjimage.a libnet.a libnio.a libzip.a; do
+              [ -f "$base/$l" ] && flags="$flags -force_load \$(SRCROOT)/$base/$l"
+            done
+            echo "$flags"
+          }
+          FFI_DEV=$(dirname "$(find ../../../probe-jvm -name 'libffi*.a' 2>/dev/null | head -1)" 2>/dev/null || true)
+          {
+            echo "HEADER_SEARCH_PATHS = \$(inherited) \$(SRCROOT)/jvm/include"
+            echo "OTHER_LDFLAGS[sdk=iphoneos*] = \$(inherited) $(libs iphoneos) -lz -lc++ -lffi -framework Foundation -framework CoreFoundation -framework Security -framework CFNetwork -framework SystemConfiguration"
+            echo "OTHER_LDFLAGS[sdk=iphonesimulator*] = \$(inherited) $(libs iphonesimulator) -lz -lc++ -lffi -framework Foundation -framework CoreFoundation -framework Security -framework CFNetwork -framework SystemConfiguration"
+            echo "LIBRARY_SEARCH_PATHS[sdk=iphoneos*] = \$(inherited) \$(SRCROOT)/jvm/ffi/iphoneos"
+            echo "LIBRARY_SEARCH_PATHS[sdk=iphonesimulator*] = \$(inherited) \$(SRCROOT)/jvm/ffi/iphonesimulator"
+          } > jvm.xcconfig
+          cat jvm.xcconfig
+
+      - name: libffi (pacote de apoio do OpenJDK Mobile)
+        working-directory: prototype/jvm/probe
+        run: |
+          curl -fsSL https://download2.gluonhq.com/mobile/mobile-support-20250106.zip -o support.zip
+          unzip -q support.zip -d support
+          find support -name 'libffi*.a' | while read f; do lipo -info "$f"; done | sed 's/^/::notice title=libffi::/'
+          mkdir -p jvm/ffi/iphoneos jvm/ffi/iphonesimulator
+          F=$(find support -path '*libffi*' -name 'libffi*.a' | head -1)
+          cp "$F" jvm/ffi/iphoneos/libffi.a
+          SIM=$(find support -path '*libffi*' -path '*sim*' -name 'libffi*.a' | head -1)
+          cp "${SIM:-$F}" jvm/ffi/iphonesimulator/libffi.a
+
+      - name: Gerar projeto
+        working-directory: prototype/jvm/probe
+        run: brew install xcodegen && xcodegen generate
+
+      - name: Compilar para o aparelho (ligação da JVM)
+        working-directory: prototype/jvm/probe
+        run: |
+          if [ ! -d jvm/iphoneos ]; then echo "::warning::sem OpenJDK para iphoneos"; exit 0; fi
+          if ! xcodebuild build -project JVMProbe.xcodeproj -scheme JVMProbe -configuration Debug \
+               -destination "generic/platform=iOS" CODE_SIGNING_ALLOWED=NO > device.log 2>&1; then
+            grep -E "error:|Undefined symbols|referenced from|duplicate symbol" device.log | sort -u | head -40 | sed 's/^/::error title=aparelho::/'
+            tail -80 device.log
+            exit 1
+          fi
+          echo "::notice title=aparelho::JVMProbe ligou com a JVM para iOS (arm64)"
+
+      - name: Testar no simulador
+        working-directory: prototype/jvm/probe
+        run: |
+          if [ ! -d jvm/iphonesimulator ]; then echo "::warning::sem OpenJDK para o simulador; teste pulado"; exit 0; fi
+          UDID=$(xcrun simctl list devices available -j | python3 ../../../scripts/pick_simulator.py)
+          status=0
+          xcodebuild test -project JVMProbe.xcodeproj -scheme JVMProbe -destination "id=$UDID" \
+            CODE_SIGNING_ALLOWED=NO > sim.log 2>&1 || status=$?
+          grep -E "FYJVM-RESULT" sim.log | head -3 | sed 's/^/::notice title=resultado::/'
+          if [ "$status" -ne 0 ]; then
+            grep -E "error:|Undefined symbols|referenced from|duplicate symbol|failed|crash|Fatal|SIG" sim.log | sort -u | head -40 | sed 's/^/::error title=simulador::/'
+            tail -100 sim.log
+            exit "$status"
+          fi
