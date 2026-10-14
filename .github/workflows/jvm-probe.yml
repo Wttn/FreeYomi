@@ -161,7 +161,8 @@ jobs:
             CODE_SIGNING_ALLOWED=NO > sim.log 2>&1 || status=$?
           grep -E "FYJVM-RESULT" sim.log | head -3 | sed 's/^/::notice title=resultado::/'
           if [ "$status" -ne 0 ]; then
-            grep -E "error:|Undefined symbols|referenced from|duplicate symbol|building for|ld: |failed|crash|Fatal|SIG" sim.log | sort -u | head -40 | sed 's/^/::error title=simulador::/'
+            grep -E "Test Case|XCTAssert|error -|: error|Undefined symbols|crash|Crash|Fatal|fatal|SIG|abort|unexpected exit|Error occurred|Exception|JNI|# |Restarting" sim.log | grep -v "ld: warning" | sort -u | head -40 | sed 's/^/::error title=simulador::/'
+            grep -v "ld: warning" sim.log | tail -25 | sed 's/^/::warning title=simulador (fim)::/'
             tail -100 sim.log
             exit "$status"
           fi
